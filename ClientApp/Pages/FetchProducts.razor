@@ -1,5 +1,5 @@
 @page "/fetchproducts"
-@inject HttpClient Http
+@inject ClientApp.Services.ProductService ProductService
 
 <h3>Product List</h3>
 
@@ -31,55 +31,21 @@ else
 }
 
 @code {
-    private Product[]? products;
+    private ClientApp.Services.Product[]? products;
     private string? errorMessage;
     private bool isLoading = true;
     
     protected override async Task OnInitializedAsync()
     {
-        try
+        isLoading = true;
+        errorMessage = null;
+        products = await ProductService.GetProductsAsync();
+        if (products == null || products.Length == 0)
         {
-            isLoading = true;
-            errorMessage = null;
-            
-            // Configure HttpClient with timeout
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            
-            // Call the back-end API
-            products = await Http.GetFromJsonAsync<Product[]>(
-                "http://localhost:5132/api/productlist", 
-                cts.Token);
-                
-            if (products == null || products.Length == 0)
-            {
-                errorMessage = "No products available.";
-            }
+            errorMessage = "No products available.";
         }
-        catch (HttpRequestException ex)
-        {
-            errorMessage = $"Network error: {ex.Message}";
-            Console.WriteLine($"HTTP Request Error: {ex}");
-        }
-        catch (TaskCanceledException)
-        {
-            errorMessage = "Request timed out. Please try again.";
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Unexpected error: {ex.Message}";
-            Console.WriteLine($"Error fetching products: {ex}");
-        }
-        finally
-        {
-            isLoading = false;
-        }
+        isLoading = false;
     }
 
-    public class Product
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public double Price { get; set; }
-        public int Stock { get; set; }
-    }
+    // Product class is now provided by ProductService
 }
