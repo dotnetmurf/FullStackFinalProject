@@ -1,4 +1,9 @@
+using Microsoft.Extensions.Caching.Memory;
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Add memory cache for performance optimization
+builder.Services.AddMemoryCache();
 
 // Add CORS services
 builder.Services.AddCors(options =>
@@ -14,9 +19,18 @@ var app = builder.Build();
 // Enable CORS
 app.UseCors("AllowBlazorClient");
 
-app.MapGet("/api/productlist", () =>
+app.MapGet("/api/productlist", (IMemoryCache cache) =>
 {
-    return new[]
+    const string cacheKey = "productlist";
+    
+    // Check cache first
+    if (cache.TryGetValue(cacheKey, out var cachedProducts))
+    {
+        return cachedProducts;
+    }
+    
+    // Generate product data (simulate database call)
+    var products = new[]
     {
         new
         {
@@ -35,6 +49,17 @@ app.MapGet("/api/productlist", () =>
             Category = new { Id = 102, Name = "Accessories" }
         }
     };
+    
+    // Cache for 5 minutes
+    var cacheOptions = new MemoryCacheEntryOptions
+    {
+        AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5),
+        SlidingExpiration = TimeSpan.FromMinutes(2)
+    };
+    
+    cache.Set(cacheKey, products, cacheOptions);
+    
+    return products;
 });
 
 app.Run();
