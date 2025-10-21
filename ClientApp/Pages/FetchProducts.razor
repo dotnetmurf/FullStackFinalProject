@@ -47,7 +47,7 @@ else
             
             // Call the back-end API
             products = await Http.GetFromJsonAsync<Product[]>(
-                "http://localhost:5132/api/products", 
+                "http://localhost:5132/api/productlist", 
                 cts.Token);
                 
             if (products == null || products.Length == 0)
