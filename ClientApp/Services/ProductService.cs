@@ -16,20 +16,36 @@ namespace ClientApp.Services
 
         public async Task<Product[]?> GetProductsAsync()
         {
+            // Optimized: Check cache first to avoid unnecessary async operations
             if (_cachedProducts != null && DateTime.Now - _lastFetchTime < _cacheDuration)
             {
                 return _cachedProducts;
             }
+
             try
             {
-                var products = await _httpClient.GetFromJsonAsync<Product[]>("http://localhost:5132/api/productlist");
-                _cachedProducts = products;
-                _lastFetchTime = DateTime.Now;
+                // Optimized: Use configurable timeout and cancellation
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                var products = await _httpClient.GetFromJsonAsync<Product[]>("http://localhost:5132/api/productlist", cts.Token);
+                
+                // Cache successful response
+                if (products != null)
+                {
+                    _cachedProducts = products;
+                    _lastFetchTime = DateTime.Now;
+                }
+                
                 return products;
             }
-            catch
+            catch (TaskCanceledException)
             {
-                return null;
+                // Return cached data if available on timeout
+                return _cachedProducts;
+            }
+            catch (HttpRequestException)
+            {
+                // Return cached data if available on network error
+                return _cachedProducts;
             }
         }
     }
@@ -40,5 +56,12 @@ namespace ClientApp.Services
         public string Name { get; set; } = string.Empty;
         public double Price { get; set; }
         public int Stock { get; set; }
+        public Category Category { get; set; } = new();
+    }
+
+    public class Category
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
     }
 }

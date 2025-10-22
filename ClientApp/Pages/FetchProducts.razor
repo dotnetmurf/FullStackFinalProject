@@ -3,6 +3,37 @@
 
 <h3>Product List</h3>
 
+<style>
+    .product-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .product-item {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 1rem;
+        background: #f9f9f9;
+    }
+    .product-item h5 {
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+    .category {
+        font-size: 0.9rem;
+        color: #666;
+        font-style: italic;
+        margin-bottom: 0.5rem;
+    }
+    .price {
+        font-weight: bold;
+        font-size: 1.2rem;
+        color: #007bff;
+        margin-bottom: 0.5rem;
+    }
+</style>
+
 @if (isLoading)
 {
     <p><em>Loading products...</em></p>
@@ -13,17 +44,19 @@ else if (!string.IsNullOrEmpty(errorMessage))
         @errorMessage
     </div>
 }
-else if (products != null && products.Length > 0)
+else if (products?.Length > 0)
 {
-    <ul>
+    <div class="product-grid">
         @foreach (var product in products)
         {
-            <li>
-                <strong>@product.Name</strong> - $@product.Price.ToString("F2")
-                <span class="badge bg-secondary">Stock: @product.Stock</span>
-            </li>
+            <div class="product-item">
+                <h5>@product.Name</h5>
+                <p class="category">@product.Category.Name</p>
+                <p class="price">@product.Price.ToString("C")</p>
+                <span class="badge bg-success">@product.Stock in stock</span>
+            </div>
         }
-    </ul>
+    </div>
 }
 else
 {
@@ -37,15 +70,18 @@ else
     
     protected override async Task OnInitializedAsync()
     {
-        isLoading = true;
-        errorMessage = null;
-        products = await ProductService.GetProductsAsync();
-        if (products == null || products.Length == 0)
+        try 
         {
-            errorMessage = "No products available.";
+            products = await ProductService.GetProductsAsync();
+            errorMessage = products?.Length == 0 ? "No products available." : null;
         }
-        isLoading = false;
+        catch
+        {
+            errorMessage = "Failed to load products. Please try again.";
+        }
+        finally 
+        {
+            isLoading = false;
+        }
     }
-
-    // Product class is now provided by ProductService
 }
