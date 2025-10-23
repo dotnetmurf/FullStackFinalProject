@@ -1,6 +1,17 @@
 @page "/fetchproducts"
 @inject ClientApp.Services.ProductService ProductService
 
+@* 
+    Component: FetchProducts
+    Purpose: Displays a grid of products fetched from the backend API
+    Features: 
+    - Loading state handling
+    - Error state management
+    - Responsive product grid layout
+    - Price formatting
+    - Stock level indication
+*@
+
 <h3>Product List</h3>
 
 @if (isLoading)
@@ -33,23 +44,44 @@ else
 }
 
 @code {
+    /// <summary>
+    /// Array of products retrieved from the ProductService
+    /// </summary>
     private ClientApp.Services.Product[]? products;
+
+    /// <summary>
+    /// Stores error message when product fetch fails
+    /// </summary>
     private string? errorMessage;
+
+    /// <summary>
+    /// Tracks loading state for displaying loading indicator
+    /// </summary>
     private bool isLoading = true;
     
+    /// <summary>
+    /// Lifecycle method that runs when the component is initialized
+    /// Fetches products from the service and handles any errors
+    /// </summary>
+    /// <returns>A task representing the asynchronous operation</returns>
     protected override async Task OnInitializedAsync()
     {
         try 
         {
+            // Fetch products from the service
             products = await ProductService.GetProductsAsync();
+            
+            // Set error message if no products were returned
             errorMessage = products?.Length == 0 ? "No products available." : null;
         }
         catch
         {
+            // Handle API errors or network failures
             errorMessage = "Failed to load products. Please try again.";
         }
         finally 
         {
+            // Always set loading to false when operation completes
             isLoading = false;
         }
     }
