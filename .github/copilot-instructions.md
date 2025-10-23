@@ -4,6 +4,10 @@
 
 This document outlines the guidelines and best practices for code generation across various programming languages, platforms, and project types. These instructions help ensure that generated code is high-quality, maintainable, secure, and follows industry standards.
 
+## Related Instruction Files
+
+- [Comment Guidelines](./comment-instructions.md) - Detailed instructions for code commenting conventions
+
 ## General Coding Principles
 
 - **Keep It Simple**: Prefer simple, readable solutions over complex ones
