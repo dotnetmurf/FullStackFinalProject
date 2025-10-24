@@ -1,79 +1,64 @@
-# AI Agent Instructions for FullStackApp
+# AI Agent Instructions for InventoryHub
 
-This is a full-stack Blazor WebAssembly application with a minimal API backend, focusing on product inventory management. Follow these guidelines when working with this codebase.
+## Related Instruction Files
 
-## Architecture Overview
+- [Application Guidelines](./blazorwasm-webapi.instructions.md) - Detailed instructions for application-building conventions
+- [Comment Guidelines](./dotnet-comments.prompt.md) - Detailed instructions for code commenting conventions
 
-- **Client (`ClientApp/`)**: Blazor WebAssembly application
-  - Uses service-based architecture for data access
-  - Implements client-side caching (5-minute duration)
-  - Root component: `App.razor`
+## Project Overview
+InventoryHub is a full-stack product inventory management application built with Blazor WebAssembly (client) and ASP.NET Core Minimal API (server). The application follows a clean separation between client and server components with optimized data flow patterns.
 
-- **Server (`ServerApp/`)**: .NET Minimal API
-  - Provides product inventory endpoints
-  - Implements in-memory caching
-  - Includes performance monitoring and logging
+## Architecture Patterns
 
-## Key Workflows
+### Client-Side (Blazor WebAssembly)
+- Entry point: `ClientApp/Program.cs` configures DI and root components
+- Services follow scoped lifetime pattern (one instance per user session)
+- Components live in `ClientApp/Pages/` with corresponding route patterns
+- State management uses client-side caching with 5-minute duration
 
-### Development Setup
+### Server-Side (ASP.NET Core Minimal API)
+- Entry point: `ServerApp/Program.cs` defines API endpoints and middleware
+- Uses in-memory caching with 5-minute expiration for performance
+- Product data structure defined in `ServerApp/Models/Product.cs`
+- Implements performance monitoring and structured error handling
 
+## Key Development Workflows
+
+### Running the Application
+Two methods available:
+
+1. Running components separately (preferred for development):
 ```powershell
-# Run both server and client (preferred method)
-dotnet run --project ServerApp    # Terminal 1
-dotnet run --project ClientApp    # Terminal 2
+dotnet run --project ServerApp  # Terminal 1
+dotnet run --project ClientApp  # Terminal 2
 ```
 
-Alternatively, use the VS Code tasks:
-- "Run ServerApp" - Starts the server
-- "Run ClientApp" - Starts the client
-- "Run Both Server and Client" - Starts both components
+2. Running both simultaneously (using provided task):
+- Use VS Code command palette to run task "Run Both Server and Client"
+- Or use provided task in tasks.json
 
-### Project Structure Patterns
+### Data Flow Patterns
+- Client-server communication uses HTTP client with base address configuration
+- Products include nested category information for efficient data transfer
+- Caching implemented at both client and server levels for performance
+- Error states should be handled and displayed to users
 
-- Services are registered in `Program.cs` of respective projects
-- Client-side services use scoped lifetime for per-session state
-- API endpoints follow RESTful conventions with caching headers
+## Project-Specific Conventions
 
-## Key Integration Points
+### Code Organization
+- Backend models in `ServerApp/Models/`
+- Frontend services in `ClientApp/Services/`
+- Blazor components in `ClientApp/Pages/`
+- Shared layout components in `ClientApp/Layout/`
 
-1. **Client-Server Communication**
-   - Base API URL configured in `ClientApp/Program.cs`
-   - HTTP client injected via DI into services
-   - CORS configured on server for Blazor client
+### Performance Optimizations
+- Server implements in-memory caching for product data
+- Client uses scoped services for session management
+- Performance monitoring integrated in server endpoints
+- Categories are nested within product data to minimize requests
 
-2. **Data Flow**
-   - `ProductService.cs` handles client-side data retrieval and caching
-   - Server provides structured product data with category information
-   - Both client and server implement 5-minute cache duration
-
-## Codebase Conventions
-
-1. **Service Pattern**
-   ```csharp
-   public class ProductService
-   {
-       private readonly HttpClient _httpClient;
-       private readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(5);
-       // Services follow this pattern with internal caching
-   }
-   ```
-
-2. **Error Handling**
-   - Services include fallback mechanisms for network failures
-   - Server endpoints include performance monitoring
-   - Client-side caching provides offline resilience
-
-## Common Tasks
-
-- Adding new API endpoints: Extend `ServerApp/Program.cs`
-- Adding new client features: Create new pages in `ClientApp/Pages/`
-- Modifying data models: Update both client and server representations
-- Cache configuration: Check both `ProductService.cs` and server's `Program.cs`
-
-## Key Files
-
-- `ServerApp/Program.cs` - API endpoints and server configuration
-- `ClientApp/Program.cs` - Client DI and service configuration
-- `ClientApp/Services/ProductService.cs` - Data access patterns
-- `ClientApp/Pages/` - Blazor components and pages
+## Integration Points
+- Client-server boundary defined by HTTP API endpoints in `ServerApp/Program.cs`
+- CORS configured for local development communication
+- Client configuration injected through `ClientApp/Program.cs`
+- Bootstrap styling integrated through `wwwroot/lib/bootstrap/`
