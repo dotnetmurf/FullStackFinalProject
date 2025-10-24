@@ -1,4 +1,4 @@
-# NOTE: The REFLECTION.md document specified in the project's specifications is included below the README.md document's contents.
+# NOTE: The REFLECTION.md document specified in the project's requirements is included below the README.md document's contents.
 
 # InventoryHub
 
