@@ -1,0 +1,153 @@
+@using ClientApp.Models
+@using ClientApp.Shared.Components
+@using ClientApp.Components
+
+<div class="product-grid">
+    @if (IsLoading)
+    {
+        <div class="text-center">
+            <LoadingIndicator IsVisible="true" Message="Loading products..." />
+        </div>
+    }
+    else if (Products?.Items == null || !Products.Items.Any())
+    {
+        <div class="alert alert-info" role="alert">
+            No products available.
+        </div>
+    }
+    else
+    {
+        <div class="mb-3">
+            <div class="row align-items-center">
+                <div class="col">
+                    <input type="text" class="form-control" 
+                           placeholder="Search products..." 
+                           @bind-value="SearchTerm" 
+                           @bind-value:event="oninput" />
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-primary" @onclick="OnAddNewClick">
+                        <i class="bi bi-plus"></i> Add New
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="products-container">
+            @foreach (var product in FilteredProducts())
+            {
+                <ProductCard Product="product" 
+                           OnView="@((p) => OnProductView.InvokeAsync(p))"
+                           OnEdit="@((p) => OnProductEdit.InvokeAsync(p))"
+                           OnDelete="@((p) => OnProductDelete.InvokeAsync(p))" />
+            }
+        </div>
+
+        @if (Products.TotalPages > 1)
+        {
+            <div class="d-flex justify-content-center mt-4">
+                <nav>
+                    <ul class="pagination">
+                        <li class="page-item @(Products.PageNumber <= 1 ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => OnPageChange.InvokeAsync(Products.PageNumber - 1)">
+                                Previous
+                            </button>
+                        </li>
+
+                        @for (var i = 1; i <= Products.TotalPages; i++)
+                        {
+                            var pageNumber = i;
+                            <li class="page-item @(pageNumber == Products.PageNumber ? "active" : "")">
+                                <button class="page-link" @onclick="() => OnPageChange.InvokeAsync(pageNumber)">
+                                    @pageNumber
+                                </button>
+                            </li>
+                        }
+
+                        <li class="page-item @(Products.PageNumber >= Products.TotalPages ? "disabled" : "")">
+                            <button class="page-link" @onclick="() => OnPageChange.InvokeAsync(Products.PageNumber + 1)">
+                                Next
+                            </button>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        }
+    }
+</div>
+
+<style>
+    .product-grid {
+        padding: 1rem;
+    }
+
+    .products-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+        gap: 1rem;
+        align-items: stretch;
+    }
+
+    .search-bar {
+        margin-bottom: 1rem;
+    }
+
+    .pagination {
+        margin-bottom: 0;
+    }
+</style>
+
+@code {
+    /// <summary>
+    /// Gets or sets the paginated list of products
+    /// </summary>
+    [Parameter]
+    public PaginatedList<Product> Products { get; set; } = default!;
+
+    /// <summary>
+    /// Gets or sets whether the grid is loading
+    /// </summary>
+    [Parameter]
+    public bool IsLoading { get; set; }
+
+    /// <summary>
+    /// Event callback when a page change is requested
+    /// </summary>
+    [Parameter]
+    public EventCallback<int> OnPageChange { get; set; }
+
+    /// <summary>
+    /// Event callback when the Add New button is clicked
+    /// </summary>
+    [Parameter]
+    public EventCallback OnAddNewClick { get; set; }
+
+    /// <summary>
+    /// Event callback when a product view is requested
+    /// </summary>
+    [Parameter]
+    public EventCallback<Product> OnProductView { get; set; }
+
+    /// <summary>
+    /// Event callback when a product edit is requested
+    /// </summary>
+    [Parameter]
+    public EventCallback<Product> OnProductEdit { get; set; }
+
+    /// <summary>
+    /// Event callback when a product deletion is requested
+    /// </summary>
+    [Parameter]
+    public EventCallback<Product> OnProductDelete { get; set; }
+
+    private string SearchTerm { get; set; } = "";
+
+    private IEnumerable<Product> FilteredProducts()
+    {
+        if (string.IsNullOrWhiteSpace(SearchTerm))
+            return Products.Items;
+
+        return Products.Items.Where(p => 
+            p.Name.Contains(SearchTerm, StringComparison.OrdinalIgnoreCase));
+    }
+}

@@ -1,4 +1,5 @@
 @page "/fetchproducts"
+@using ClientApp.Models
 @inject ClientApp.Services.ProductService ProductService
 
 @* 
@@ -24,18 +25,54 @@ else if (!string.IsNullOrEmpty(errorMessage))
         @errorMessage
     </div>
 }
-else if (products?.Length > 0)
+else if (products?.Items != null && products.Items.Any())
 {
+    <div class="row mb-3">
+        <div class="col">
+            <p>
+                @{
+                    var start = ((products!.PageNumber - 1) * products.PageSize) + 1;
+                    var end = Math.Min(products.PageNumber * products.PageSize, products.TotalCount);
+                }
+                Showing @start - @end of @products.TotalCount items
+            </p>
+        </div>
+    </div>
+
     <div class="product-grid">
-        @foreach (var product in products)
+        @foreach (var product in products.Items)
         {
             <div class="product-item">
                 <h5>@product.Name</h5>
-                <p class="category">@product.Category.Name</p>
+                <p class="category">@product.Category?.Name</p>
                 <p class="price">@product.Price.ToString("C")</p>
-                <span class="badge bg-success">@product.Stock in stock</span>
+                <span class="badge bg-@(product.Stock > 0 ? "success" : "danger")">
+                    @(product.Stock > 0 ? $"{product.Stock} in stock" : "Out of stock")
+                </span>
             </div>
         }
+    </div>
+
+    <div class="row mt-3">
+        <div class="col">
+            <nav aria-label="Product navigation">
+                <ul class="pagination">
+                    <li class="page-item @(!products?.HasPreviousPage == true ? "disabled" : "")">
+                        <button class="page-link" @onclick="() => LoadPage(products!.PageNumber - 1)" disabled="@(!products!.HasPreviousPage)">
+                            Previous
+                        </button>
+                    </li>
+                    <li class="page-item active">
+                        <span class="page-link">@products?.PageNumber</span>
+                    </li>
+                    <li class="page-item @(!products?.HasNextPage == true ? "disabled" : "")">
+                        <button class="page-link" @onclick="() => LoadPage(products!.PageNumber + 1)" disabled="@(!products!.HasNextPage)">
+                            Next
+                        </button>
+                    </li>
+                </ul>
+            </nav>
+        </div>
     </div>
 }
 else
@@ -45,43 +82,63 @@ else
 
 @code {
     /// <summary>
-    /// Array of products retrieved from the ProductService
+    /// Current page of products retrieved from the ProductService
     /// </summary>
-    private ClientApp.Services.Product[]? products;
+    private PaginatedList<Product>? products;
 
     /// <summary>
-    /// Stores error message when product fetch fails
+    /// Current page number for pagination
+    /// </summary>
+    private int currentPage = 1;
+
+    /// <summary>
+    /// Items per page for pagination
+    /// </summary>
+    private const int PageSize = 10;
+
+    /// <summary>
+    /// Loading state indicator
+    /// </summary>
+    private bool isLoading = true;
+
+    /// <summary>
+    /// Error message to display, if any
     /// </summary>
     private string? errorMessage;
 
     /// <summary>
-    /// Tracks loading state for displaying loading indicator
+    /// Loads products when the component is initialized
     /// </summary>
-    private bool isLoading = true;
-    
-    /// <summary>
-    /// Lifecycle method that runs when the component is initialized
-    /// Fetches products from the service and handles any errors
-    /// </summary>
-    /// <returns>A task representing the asynchronous operation</returns>
     protected override async Task OnInitializedAsync()
     {
-        try 
+        await LoadPage(1);
+    }
+
+    /// <summary>
+    /// Loads a specific page of products
+    /// </summary>
+    /// <param name="pageNumber">The page number to load</param>
+    private async Task LoadPage(int pageNumber)
+    {
+        try
         {
-            // Fetch products from the service
-            products = await ProductService.GetProductsAsync();
+            isLoading = true;
+            errorMessage = null;
             
-            // Set error message if no products were returned
-            errorMessage = products?.Length == 0 ? "No products available." : null;
+            products = await ProductService.GetProductsAsync(pageNumber, PageSize);
+            currentPage = pageNumber;
+            
+            if (products?.Items == null || !products.Items.Any())
+            {
+                errorMessage = "No products available.";
+            }
         }
-        catch
+        catch (Exception ex)
         {
-            // Handle API errors or network failures
-            errorMessage = "Failed to load products. Please try again.";
+            errorMessage = $"Error loading products: {ex.Message}";
         }
-        finally 
+        finally
         {
-            // Always set loading to false when operation completes
             isLoading = false;
         }
     }

@@ -1,138 +1,194 @@
 using System.Net.Http.Json;
+using System.Collections.Concurrent;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
+using ClientApp.Models;
 
-namespace ClientApp.Services
+namespace ClientApp.Services;
+
+/// <summary>
+/// Service for managing product-related operations with caching support
+/// </summary>
+public class ProductService
 {
+    private readonly HttpClient _httpClient;
+    private readonly IMemoryCache _cache;
+    private readonly ILogger<ProductService> _logger;
+    private const string CacheKeyPrefix = "product_";
+    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(5);
+    private static readonly ConcurrentDictionary<string, object> _cacheKeys = new();
+
     /// <summary>
-    /// Service responsible for managing product data retrieval and caching
+    /// Initializes a new instance of the ProductService
     /// </summary>
-    /// <remarks>
-    /// This service implements a caching strategy with a 5-minute duration
-    /// and includes fallback mechanisms for network failures
-    /// </remarks>
-    public class ProductService
+    public ProductService(
+        HttpClient httpClient,
+        IMemoryCache cache,
+        ILogger<ProductService> logger)
     {
-        /// <summary>
-        /// HTTP client for making API requests
-        /// </summary>
-        private readonly HttpClient _httpClient;
+        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
 
-        /// <summary>
-        /// Cache storage for product data
-        /// </summary>
-        private Product[]? _cachedProducts;
-
-        /// <summary>
-        /// Timestamp of the last successful API fetch
-        /// </summary>
-        private DateTime _lastFetchTime;
-
-        /// <summary>
-        /// Duration for which cached data is considered valid (5 minutes)
-        /// </summary>
-        private readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(5);
-
-        /// <summary>
-        /// Initializes a new instance of the ProductService
-        /// </summary>
-        /// <param name="httpClient">The HTTP client used for API requests</param>
-        public ProductService(HttpClient httpClient)
+    /// <summary>
+    /// Retrieves a paginated list of products
+    /// </summary>
+    /// <param name="pageNumber">The page number to retrieve (1-based)</param>
+    /// <param name="pageSize">The number of items per page</param>
+    /// <returns>A paginated list of products</returns>
+    public async Task<PaginatedList<Product>> GetProductsAsync(int pageNumber = 1, int pageSize = 10)
+    {
+        try
         {
-            _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        }
-
-        /// <summary>
-        /// Retrieves a list of products with caching support
-        /// </summary>
-        /// <returns>
-        /// An array of products if successful, or null if the request fails and no cache is available
-        /// </returns>
-        /// <remarks>
-        /// This method implements the following features:
-        /// - 5-minute client-side caching
-        /// - 10-second timeout for API requests
-        /// - Fallback to cached data on network errors
-        /// </remarks>
-        /// <exception cref="ArgumentNullException">Thrown when HttpClient is null</exception>
-        public async Task<Product[]?> GetProductsAsync()
-        {
-            // Optimized: Check cache first to avoid unnecessary async operations
-            if (_cachedProducts != null && DateTime.Now - _lastFetchTime < _cacheDuration)
+            var cacheKey = $"{CacheKeyPrefix}list_p{pageNumber}_s{pageSize}";
+            if (!_cache.TryGetValue(cacheKey, out PaginatedList<Product>? products))
             {
-                return _cachedProducts;
-            }
-
-            try
-            {
-                // Optimized: Use configurable timeout and cancellation
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-                var products = await _httpClient.GetFromJsonAsync<Product[]>("http://localhost:5132/api/productlist", cts.Token);
-                
-                // Cache successful response
+                products = await _httpClient.GetFromJsonAsync<PaginatedList<Product>>($"api/products?page={pageNumber}&pageSize={pageSize}");
                 if (products != null)
                 {
-                    _cachedProducts = products;
-                    _lastFetchTime = DateTime.Now;
+                    _cacheKeys.TryAdd(cacheKey, new object());
+                    _cache.Set(cacheKey, products, CacheDuration);
                 }
-                
-                return products;
             }
-            catch (TaskCanceledException)
-            {
-                // Return cached data if available on timeout
-                return _cachedProducts;
-            }
-            catch (HttpRequestException)
-            {
-                // Return cached data if available on network error
-                return _cachedProducts;
-            }
+            return products ?? new PaginatedList<Product>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving products list");
+            throw;
         }
     }
 
     /// <summary>
-    /// Represents a product in the inventory system
+    /// Retrieves a specific product by ID
     /// </summary>
-    public class Product
+    /// <param name="id">The ID of the product to retrieve</param>
+    /// <returns>The product if found, null otherwise</returns>
+    public async Task<Product?> GetProductAsync(int id)
     {
-        /// <summary>
-        /// Unique identifier for the product
-        /// </summary>
-        public int Id { get; set; }
-
-        /// <summary>
-        /// Name of the product
-        /// </summary>
-        public string Name { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Price of the product in the system's currency
-        /// </summary>
-        public double Price { get; set; }
-
-        /// <summary>
-        /// Current stock level of the product
-        /// </summary>
-        public int Stock { get; set; }
-
-        /// <summary>
-        /// Category classification of the product
-        /// </summary>
-        public Category Category { get; set; } = new();
+        try
+        {
+            var cacheKey = $"{CacheKeyPrefix}{id}";
+            if (!_cache.TryGetValue(cacheKey, out Product? product))
+            {
+                product = await _httpClient.GetFromJsonAsync<Product>($"api/products/{id}");
+                if (product != null)
+                {
+                    _cacheKeys.TryAdd(cacheKey, new object());
+                    _cache.Set(cacheKey, product, CacheDuration);
+                }
+            }
+            return product;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving product {Id}", id);
+            throw;
+        }
     }
 
     /// <summary>
-    /// Represents a product category in the inventory system
+    /// Creates a new product
     /// </summary>
-    public class Category
+    /// <param name="product">The product to create</param>
+    /// <returns>The created product</returns>
+    /// <exception cref="ArgumentNullException">Thrown when product is null</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the server fails to create the product</exception>
+    public async Task<Product> CreateProductAsync(Product product)
     {
-        /// <summary>
-        /// Unique identifier for the category
-        /// </summary>
-        public int Id { get; set; }
+        ArgumentNullException.ThrowIfNull(product);
 
-        /// <summary>
-        /// Name of the category
-        /// </summary>
-        public string Name { get; set; } = string.Empty;
+        try
+        {
+            var response = await _httpClient.PostAsJsonAsync("api/products", product);
+            response.EnsureSuccessStatusCode();
+            
+            var createdProduct = await response.Content.ReadFromJsonAsync<Product>();
+            if (createdProduct != null)
+            {
+                InvalidateProductCache();
+                return createdProduct;
+            }
+            
+            throw new InvalidOperationException("Failed to create product: server returned null");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error creating product: {Name}", product.Name);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Updates an existing product
+    /// </summary>
+    /// <param name="id">The ID of the product to update</param>
+    /// <param name="product">The updated product data</param>
+    /// <returns>The updated product</returns>
+    /// <exception cref="ArgumentNullException">Thrown when product is null</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the server fails to update the product</exception>
+    public async Task<Product> UpdateProductAsync(int id, Product product)
+    {
+        ArgumentNullException.ThrowIfNull(product);
+
+        try
+        {
+            var response = await _httpClient.PutAsJsonAsync($"api/products/{id}", product);
+            response.EnsureSuccessStatusCode();
+            
+            var updatedProduct = await response.Content.ReadFromJsonAsync<Product>();
+            if (updatedProduct != null)
+            {
+                InvalidateProductCache();
+                return updatedProduct;
+            }
+            
+            throw new InvalidOperationException($"Failed to update product {id}: server returned null");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating product {Id}", id);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Deletes a product
+    /// </summary>
+    /// <param name="id">The ID of the product to delete</param>
+    /// <exception cref="HttpRequestException">Thrown when the server fails to delete the product</exception>
+    public async Task DeleteProductAsync(int id)
+    {
+        try
+        {
+            var response = await _httpClient.DeleteAsync($"api/products/{id}");
+            response.EnsureSuccessStatusCode();
+            InvalidateProductCache();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting product {Id}", id);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Invalidates the product cache
+    /// </summary>
+    private void InvalidateProductCache()
+    {
+        try
+        {
+            foreach (var key in _cacheKeys.Keys.ToList())
+            {
+                _cache.Remove(key);
+                _cacheKeys.TryRemove(key, out _);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error invalidating product cache");
+        }
     }
 }

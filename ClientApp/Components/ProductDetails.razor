@@ -1,0 +1,103 @@
+@using ClientApp.Models
+@using ClientApp.Shared.Components
+
+<div class="product-details">
+    @if (IsLoading)
+    {
+        <LoadingIndicator IsVisible="true" Message="Loading product details..." />
+    }
+    else if (Product == null)
+    {
+        <div class="alert alert-warning" role="alert">
+            Product not found.
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title mb-0">@Product.Name</h3>
+            </div>
+            <div class="card-body">
+                @if (Product.Category != null)
+                {
+                    <h6 class="card-subtitle mb-3 text-muted">@Product.Category.Name</h6>
+                }
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Price:</strong>
+                        <p class="mb-0">@Product.Price.ToString("C")</p>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Stock Level:</strong>
+                        <p class="mb-0">
+                            <span class="badge @(Product.Stock > 0 ? "bg-success" : "bg-danger")">
+                                @(Product.Stock > 0 ? $"{Product.Stock} in stock" : "Out of stock")
+                            </span>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="action-buttons mt-4">
+                    <button class="btn btn-primary" @onclick="OnEdit">Edit</button>
+                    <button class="btn btn-danger ms-2" @onclick="OnDelete">Delete</button>
+                    <button class="btn btn-secondary ms-2" @onclick="OnBack">Back to List</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+    .product-details {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 1rem;
+    }
+
+    .card {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .card-header {
+        background-color: #f8f9fa;
+    }
+
+    .action-buttons {
+        border-top: 1px solid #dee2e6;
+        padding-top: 1rem;
+    }
+</style>
+
+@code {
+    /// <summary>
+    /// Gets or sets the product to display
+    /// </summary>
+    [Parameter]
+    public Product? Product { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the component is loading
+    /// </summary>
+    [Parameter]
+    public bool IsLoading { get; set; }
+
+    /// <summary>
+    /// Event callback when the edit button is clicked
+    /// </summary>
+    [Parameter]
+    public EventCallback OnEdit { get; set; }
+
+    /// <summary>
+    /// Event callback when the delete button is clicked
+    /// </summary>
+    [Parameter]
+    public EventCallback OnDelete { get; set; }
+
+    /// <summary>
+    /// Event callback when the back button is clicked
+    /// </summary>
+    [Parameter]
+    public EventCallback OnBack { get; set; }
+}

@@ -280,7 +280,7 @@ d. DeleteProduct.razor
 - Implement error boundaries
 ```
 
-### Phase 5: Error Handling
+### Phase 4: Error Handling
 
 1. Global Error Handler
 ```markdown
@@ -290,7 +290,7 @@ d. DeleteProduct.razor
 - Configure retry policies
 ```
 
-### Phase 6: Testing
+### Phase 5: Testing
 
 1. Unit Tests
 ```markdown

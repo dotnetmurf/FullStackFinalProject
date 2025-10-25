@@ -1,0 +1,111 @@
+@using ClientApp.Models
+@using ClientApp.Shared.Components
+@using Microsoft.AspNetCore.Components.Forms
+
+<EditForm Model="@Product" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+
+    <div class="form-group mb-3">
+        <label for="name">Name</label>
+        <InputText id="name" class="form-control" @bind-Value="Product.Name" />
+        <Microsoft.AspNetCore.Components.Forms.ValidationMessage For="@(() => Product.Name)" />
+    </div>
+
+    <div class="form-group mb-3">
+        <label for="price">Price</label>
+        <InputNumber id="price" class="form-control" @bind-Value="Product.Price" />
+        <Microsoft.AspNetCore.Components.Forms.ValidationMessage For="@(() => Product.Price)" />
+    </div>
+
+    <div class="form-group mb-3">
+        <label for="stock">Stock</label>
+        <InputNumber id="stock" class="form-control" @bind-Value="Product.Stock" />
+        <Microsoft.AspNetCore.Components.Forms.ValidationMessage For="@(() => Product.Stock)" />
+    </div>
+
+    @if (ShowServerErrors && ServerErrors.Any())
+    {
+        <ClientApp.Shared.Components.ValidationMessage Errors="@ServerErrors" ShowSummary="true" />
+    }
+
+    <div class="button-group mt-4">
+        @if (IsEditing)
+        {
+            <button type="submit" class="btn btn-primary" disabled="@IsLoading">
+                @if (IsLoading)
+                {
+                    <LoadingIndicator IsVisible="true" Size="LoadingIndicator.SpinnerSize.Small" />
+                    <span class="ms-2">Saving...</span>
+                }
+                else
+                {
+                    <span>Save Changes</span>
+                }
+            </button>
+        }
+        else
+        {
+            <button type="submit" class="btn btn-success" disabled="@IsLoading">
+                @if (IsLoading)
+                {
+                    <LoadingIndicator IsVisible="true" Size="LoadingIndicator.SpinnerSize.Small" />
+                    <span class="ms-2">Creating...</span>
+                }
+                else
+                {
+                    <span>Create Product</span>
+                }
+            </button>
+        }
+        <button type="button" class="btn btn-secondary ms-2" @onclick="OnCancel" disabled="@IsLoading">Cancel</button>
+    </div>
+</EditForm>
+
+@code {
+    /// <summary>
+    /// Gets or sets the product being edited
+    /// </summary>
+    [Parameter]
+    public Product Product { get; set; } = default!;
+
+    /// <summary>
+    /// Gets or sets whether the form is in edit mode
+    /// </summary>
+    [Parameter]
+    public bool IsEditing { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the form is in a loading state
+    /// </summary>
+    [Parameter]
+    public bool IsLoading { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether to show server validation errors
+    /// </summary>
+    [Parameter]
+    public bool ShowServerErrors { get; set; }
+
+    /// <summary>
+    /// Gets or sets the server validation errors
+    /// </summary>
+    [Parameter]
+    public IEnumerable<string> ServerErrors { get; set; } = Array.Empty<string>();
+
+    /// <summary>
+    /// Event callback when the form is submitted successfully
+    /// </summary>
+    [Parameter]
+    public EventCallback<Product> OnSubmit { get; set; }
+
+    /// <summary>
+    /// Event callback when the form is cancelled
+    /// </summary>
+    [Parameter]
+    public EventCallback OnCancel { get; set; }
+
+    private async Task HandleValidSubmit()
+    {
+        await OnSubmit.InvokeAsync(Product);
+    }
+}

@@ -6,12 +6,17 @@
 /// Configures:
 /// - Root components (App and HeadOutlet)
 /// - HTTP client with base address
+/// - Memory cache
+/// - Logging services
 /// - Scoped services (ProductService)
 /// </remarks>
 
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Caching.Memory;
 using ClientApp;
+using ClientApp.Services;
 
 // Create the WebAssembly host builder with default configuration
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
@@ -26,9 +31,18 @@ builder.Services.AddScoped(sp => new HttpClient
     BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) 
 });
 
+// Add memory cache service
+builder.Services.AddMemoryCache();
+
+// Add logging services
+builder.Services.AddLogging(logging => 
+{
+    logging.SetMinimumLevel(LogLevel.Information);
+});
+
 // Register the ProductService as a scoped service
 // This ensures one instance per user session
-builder.Services.AddScoped<ClientApp.Services.ProductService>();
+builder.Services.AddScoped<ProductService>();
 
 // Build and run the application
 await builder.Build().RunAsync();
