@@ -20,24 +20,46 @@ using ClientApp.Services;
 
 // Create the WebAssembly host builder with default configuration
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
+
 // Register root components for the application
 builder.RootComponents.Add<App>("#app");                    // Main application component
 builder.RootComponents.Add<HeadOutlet>("head::after");      // Head content management
 
+// Load configuration
+var apiBaseUrl = builder.Configuration.GetValue<string>("API:BaseUrl") ?? "http://localhost:5132";
+var cacheExpiration = builder.Configuration.GetValue<int>("Cache:DefaultExpirationMinutes", 5);
+
 // Configure services for dependency injection
-builder.Services.AddScoped(sp => new HttpClient 
-{ 
-    // Configure HttpClient with the application's base address
-    BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) 
+// Configure HttpClient with base URL and default timeout
+builder.Services.AddScoped(sp => 
+{
+    var client = new HttpClient 
+    { 
+        BaseAddress = new Uri(apiBaseUrl),
+        Timeout = TimeSpan.FromSeconds(30)
+    };
+    
+    // Add default headers
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+    
+    return client;
 });
 
-// Add memory cache service
-builder.Services.AddMemoryCache();
+// Add memory cache service with default expiration
+builder.Services.AddMemoryCache(options =>
+{
+    options.SizeLimit = 1024;
+    options.ExpirationScanFrequency = TimeSpan.FromMinutes(1);
+});
 
 // Add logging services
 builder.Services.AddLogging(logging => 
 {
     logging.SetMinimumLevel(LogLevel.Information);
+    
+    #if DEBUG
+    logging.SetMinimumLevel(LogLevel.Debug);
+    #endif
 });
 
 // Register the ProductService as a scoped service

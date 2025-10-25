@@ -1,0 +1,122 @@
+@page "/product/{id:int}/delete"
+@using ClientApp.Models
+@inject ProductService ProductService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Delete Product - InventoryHub</PageTitle>
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Delete Product</h1>
+                <button class="btn btn-secondary" @onclick="NavigateBack">
+                    <i class="bi bi-arrow-left"></i> Back
+                </button>
+            </div>
+
+            @if (_loading)
+            {
+                <LoadingIndicator />
+            }
+            else if (_error != null)
+            {
+                <div class="alert alert-danger" role="alert">
+                    @_error
+                </div>
+            }
+            else if (_product != null)
+            {
+                <ProductDeleteConfirm Product="@_product"
+                                    OnConfirm="DeleteProductHandler"
+                                    OnCancel="NavigateBack" />
+            }
+        </div>
+    </div>
+</div>
+
+@if (_showStatusModal)
+{
+    <StatusModal Title="@_statusModalTitle"
+                 Message="@_statusModalMessage"
+                 IsSuccess="@_isSuccess"
+                 OnClose="CloseStatusModal" />
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Models.Product? _product;
+    private bool _loading = true;
+    private string? _error;
+    
+    // Status modal properties
+    private bool _showStatusModal;
+    private string _statusModalTitle = "";
+    private string _statusModalMessage = "";
+    private bool _isSuccess;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProduct();
+    }
+
+    private async Task LoadProduct()
+    {
+        try
+        {
+            _loading = true;
+            _error = null;
+            _product = await ProductService.GetProductAsync(Id);
+            
+            if (_product == null)
+            {
+                _error = "Product not found.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = "Error loading product: " + ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task DeleteProductHandler()
+    {
+        try
+        {
+            await ProductService.DeleteProductAsync(Id);
+            ShowStatusModal("Success", "Product deleted successfully.", true);
+        }
+        catch (Exception ex)
+        {
+            ShowStatusModal("Error", $"Failed to delete product: {ex.Message}", false);
+        }
+    }
+
+    private void ShowStatusModal(string title, string message, bool isSuccess)
+    {
+        _statusModalTitle = title;
+        _statusModalMessage = message;
+        _isSuccess = isSuccess;
+        _showStatusModal = true;
+    }
+
+    private void CloseStatusModal()
+    {
+        _showStatusModal = false;
+        if (_isSuccess)
+        {
+            NavigateBack();
+        }
+    }
+
+    private void NavigateBack()
+    {
+        NavigationManager.NavigateTo("/products");
+    }
+}

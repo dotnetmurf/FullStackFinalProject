@@ -1,0 +1,159 @@
+@page "/products"
+@using ClientApp.Components
+@using ClientApp.Services
+@using ClientApp.Models
+@using ClientApp.Shared.Components
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.Extensions.Logging
+@inject ProductService ProductService
+@inject NavigationManager NavigationManager
+@inject ILogger<Products> Logger
+
+<PageTitle>Products - InventoryHub</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Products</h1>
+        <button class="btn btn-primary" @onclick="CreateNewProduct">
+            <i class="bi bi-plus-circle"></i> Create New
+        </button>
+    </div>
+
+    <ErrorBoundary @ref="_errorBoundary">
+        <ChildContent>
+            @if (_loading)
+            {
+                <LoadingIndicator IsVisible="true" Message="Loading products..." />
+            }
+            else if (_error != null)
+            {
+                <div class="alert alert-danger" role="alert">
+                    @_error
+                    <button type="button" class="btn btn-link" @onclick="() => LoadProducts()">Try Again</button>
+                </div>
+            }
+            else
+            {
+                <div class="row mb-3">
+                    <div class="col">
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Search products..." 
+                                   @bind-value="_searchTerm" @bind-value:event="oninput" 
+                                   @onkeyup="@(async e => { if (e.Key == "Enter") await HandleSearch(_searchTerm); })" />
+                            <button class="btn btn-outline-secondary" @onclick="@(() => HandleSearch(_searchTerm))">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <ProductGrid Products="@_products" 
+                            OnProductView="NavigateToProduct"
+                            OnProductDelete="@(async _ => await LoadProducts())" />
+
+                @if (_products?.TotalPages > 1)
+                {
+                    <div class="d-flex justify-content-center mt-4">
+                        <nav>
+                            <ul class="pagination">
+                                @for (var i = 1; i <= _products.TotalPages; i++)
+                                {
+                                    var pageNumber = i;
+                                    <li class="page-item @(pageNumber == _currentPage ? "active" : "")">
+                                        <button class="page-link" @onclick="() => HandlePageChange(pageNumber)">@pageNumber</button>
+                                    </li>
+                                }
+                            </ul>
+                        </nav>
+                    </div>
+                }
+            }
+        </ChildContent>
+        <ErrorContent Context="ex">
+            <div class="alert alert-danger" role="alert">
+                <h4 class="alert-heading">Error Loading Products</h4>
+                <p>@ex.Message</p>
+                <hr>
+                <p class="mb-0">Please try again later or contact support if the problem persists.</p>
+                <button type="button" class="btn btn-primary mt-3" @onclick="() => LoadProducts()">Try Again</button>
+            </div>
+        </ErrorContent>
+    </ErrorBoundary>
+</div>
+
+@code {
+    private PaginatedList<Models.Product>? _products;
+    private bool _loading = true;
+    private string? _error;
+    private string _searchTerm = "";
+    private int _currentPage = 1;
+    private const int PageSize = 10;
+    private ErrorBoundary? _errorBoundary;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProducts();
+    }
+
+    private async Task LoadProducts(int page = 1, string? searchTerm = null)
+    {
+        try
+        {
+            _loading = true;
+            _error = null;
+            _currentPage = page;
+            if (searchTerm != null) _searchTerm = searchTerm;
+
+            _products = await ProductService.GetProductsAsync(new GetProductsParams 
+            { 
+                Page = page,
+                PageSize = PageSize,
+                SearchTerm = !string.IsNullOrWhiteSpace(_searchTerm) ? _searchTerm : null
+            });
+
+            if (_products?.Items != null)
+            {
+                Logger.LogInformation($"Loaded {_products.Items.Count} products on page {page}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = "Error loading products: " + ex.Message;
+            Logger.LogError($"Failed to load products: {ex.Message}");
+            _errorBoundary?.Recover();
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleSearch(string searchTerm)
+    {
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            Logger.LogInformation("Searching products with term: {SearchTerm}", searchTerm);
+            await LoadProducts(1, searchTerm);
+        }
+    }
+
+    private async Task HandlePageChange(int page)
+    {
+        if (page != _currentPage && page > 0)
+        {
+            Logger.LogInformation("Changing to page {Page}", page);
+            await LoadProducts(page);
+        }
+    }
+
+    private void NavigateToProduct(Models.Product product)
+    {
+        NavigationManager.NavigateTo($"/product/{product.Id}");
+    }
+
+    private void CreateNewProduct()
+    {
+        NavigationManager.NavigateTo("/product/new");
+    }
+}

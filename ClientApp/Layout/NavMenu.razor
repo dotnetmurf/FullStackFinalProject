@@ -1,27 +1,45 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@inject NavigationManager NavigationManager
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">InventoryHub</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+        <a class="navbar-brand" href="">
+            <span class="bi bi-box-seam-fill me-2" aria-hidden="true"></span>
+            InventoryHub
+        </a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu" 
+                aria-expanded="@(!collapseNavMenu)" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
     </div>
 </div>
 
-<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
-    <nav class="nav flex-column">
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu" role="navigation">
+    <nav class="nav flex-column" aria-label="Main navigation">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span>
+                <span>Home</span>
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="fetchproducts">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Products
+            <NavLink class="nav-link" href="products" Match="NavLinkMatch.Prefix">
+                <span class="bi bi-box-seam" aria-hidden="true"></span>
+                <span>Products</span>
             </NavLink>
+            @if (IsProductsActive)
+            {
+                <div class="nav-item px-4">
+                    <NavLink class="nav-link" href="products/new">
+                        <span class="bi bi-plus-circle" aria-hidden="true"></span>
+                        <span>Add New</span>
+                    </NavLink>
+                </div>
+            }
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="about">
-                <span class="bi bi-info-circle-fill-nav-menu" aria-hidden="true"></span> About
+                <span class="bi bi-info-circle-fill-nav-menu" aria-hidden="true"></span>
+                <span>About</span>
             </NavLink>
         </div>
     </nav>
@@ -29,11 +47,26 @@
 
 @code {
     private bool collapseNavMenu = true;
-
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    private bool IsProductsActive => NavigationManager.Uri.Contains("/products", StringComparison.OrdinalIgnoreCase);
+
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += HandleLocationChanged;
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        StateHasChanged();
+    }
 
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= HandleLocationChanged;
     }
 }

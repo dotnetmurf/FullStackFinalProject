@@ -1,3 +1,6 @@
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+
 namespace ServerApp.Models;
 
 /// <summary>
@@ -17,42 +20,39 @@ public class Product
     /// <summary>
     /// Name of the product
     /// </summary>
+    [Required(ErrorMessage = "Product name is required")]
+    [StringLength(100, ErrorMessage = "Name cannot be longer than 100 characters")]
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Description of the product
+    /// </summary>
+    [StringLength(500, ErrorMessage = "Description cannot be longer than 500 characters")]
+    public string Description { get; set; } = string.Empty;
 
     /// <summary>
     /// Price of the product in the system's currency
     /// </summary>
-    public double Price { get; set; }
+    [Range(0.01, double.MaxValue, ErrorMessage = "Price must be greater than 0")]
+    public decimal Price { get; set; }
 
     /// <summary>
     /// Current stock level of the product
     /// </summary>
+    [Range(0, int.MaxValue, ErrorMessage = "Stock cannot be negative")]
     public int Stock { get; set; }
 
     /// <summary>
-    /// Category classification of the product
+    /// The timestamp when the product was created
     /// </summary>
-    public Category Category { get; set; } = new();
-}
-
-/// <summary>
-/// Represents a product category in the inventory system
-/// </summary>
-/// <remarks>
-/// Categories are used to organize products into logical groups
-/// and facilitate product management and filtering
-/// </remarks>
-public class Category
-{
-    /// <summary>
-    /// Unique identifier for the category
-    /// </summary>
-    public int Id { get; set; }
+    [JsonPropertyName("createdAt")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// Name of the category
+    /// The timestamp when the product was last updated
     /// </summary>
-    public string Name { get; set; } = string.Empty;
+    [JsonPropertyName("updatedAt")]
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
 /// <summary>
@@ -68,22 +68,27 @@ public class CreateProductRequest
     /// <summary>
     /// Name of the new product
     /// </summary>
+    [Required(ErrorMessage = "Product name is required")]
+    [StringLength(100, ErrorMessage = "Name cannot be longer than 100 characters")]
     public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Description of the product
+    /// </summary>
+    [StringLength(500, ErrorMessage = "Description cannot be longer than 500 characters")]
+    public string Description { get; set; } = string.Empty;
 
     /// <summary>
     /// Initial price of the new product
     /// </summary>
-    public double Price { get; set; }
+    [Range(0.01, double.MaxValue, ErrorMessage = "Price must be greater than 0")]
+    public decimal Price { get; set; }
 
     /// <summary>
     /// Initial stock level of the new product
     /// </summary>
+    [Range(0, int.MaxValue, ErrorMessage = "Stock cannot be negative")]
     public int Stock { get; set; }
-
-    /// <summary>
-    /// Category assignment for the new product
-    /// </summary>
-    public Category Category { get; set; } = new();
 }
 
 /// <summary>
@@ -98,6 +103,29 @@ public class UpdateProductRequest
 {
     /// <summary>
     /// Updated name of the product
+    /// </summary>
+    [Required(ErrorMessage = "Product name is required")]
+    [StringLength(100, ErrorMessage = "Name cannot be longer than 100 characters")]
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Updated description of the product
+    /// </summary>
+    [StringLength(500, ErrorMessage = "Description cannot be longer than 500 characters")]
+    public string Description { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Updated price of the product
+    /// </summary>
+    [Range(0.01, double.MaxValue, ErrorMessage = "Price must be greater than 0")]
+    public decimal Price { get; set; }
+
+    /// <summary>
+    /// Updated stock level of the product
+    /// </summary>
+    [Range(0, int.MaxValue, ErrorMessage = "Stock cannot be negative")]
+    public int Stock { get; set; }
+}
     /// </summary>
     public string Name { get; set; } = string.Empty;
 

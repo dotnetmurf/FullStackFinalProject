@@ -1,16 +1,103 @@
-﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+﻿@using Microsoft.AspNetCore.Components.Routing
+@inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
 
-    <main>
-        <div class="top-row px-4">
-            <p>InventoryHub</p>
+<ErrorBoundary>
+    <ChildContent>
+        <div class="page">
+            <div class="sidebar">
+                <NavMenu />
+            </div>
+
+            <main>
+                <div class="top-row px-4">
+                    <div class="d-flex justify-content-between w-100 align-items-center">
+                        <h1 class="mb-0">InventoryHub</h1>
+                        @if (_isLoading)
+                        {
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <article class="content px-4">
+                    <div class="@(_isLoading ? "loading" : "")">
+                        @Body
+                    </div>
+                </article>
+
+                @if (_showFeedback)
+                {
+                    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+                        <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+                            <div class="toast-header">
+                                <strong class="me-auto">@_feedbackTitle</strong>
+                                <button type="button" class="btn-close" @onclick="() => _showFeedback = false"></button>
+                            </div>
+                            <div class="toast-body @_feedbackClass">
+                                @_feedbackMessage
+                            </div>
+                        </div>
+                    </div>
+                }
+            </main>
         </div>
+    </ChildContent>
+    <ErrorContent Context="ex">
+        <div class="alert alert-danger" role="alert">
+            <h4 class="alert-heading">Error</h4>
+            <p>Sorry, an error has occurred in the application.</p>
+            <hr>
+            <p class="mb-0">@ex.Message</p>
+        </div>
+    </ErrorContent>
+</ErrorBoundary>
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+@code {
+    private bool _isLoading;
+    private bool _showFeedback;
+    private string _feedbackMessage = "";
+    private string _feedbackTitle = "";
+    private string _feedbackClass = "";
+
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += HandleLocationChanged;
+    }
+
+    private void HandleLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        // Simulate navigation delay and then hide loading indicator
+        Task.Delay(300).ContinueWith(_ =>
+        {
+            _isLoading = false;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    public void ShowFeedback(string title, string message, bool isError = false)
+    {
+        _feedbackTitle = title;
+        _feedbackMessage = message;
+        _feedbackClass = isError ? "text-danger" : "text-success";
+        _showFeedback = true;
+        StateHasChanged();
+
+        // Auto-hide feedback after 5 seconds
+        Task.Delay(5000).ContinueWith(_ =>
+        {
+            _showFeedback = false;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= HandleLocationChanged;
+    }
+}

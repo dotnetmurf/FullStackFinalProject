@@ -1,6 +1,13 @@
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.OpenApi.Models;
+using System.Diagnostics;
+using System.Reflection;
+using ServerApp.Models;
+
+var builder = WebApplication.CreateBuilder(args);
+
 /// <summary>
-/// InventoryHub Server Application
-/// Provides a minimal API for product inventory management with performance optimizations
+/// Configure services for the InventoryHub application
 /// </summary>
 /// <remarks>
 /// Features:
@@ -10,16 +17,9 @@
 /// - Error handling and monitoring
 /// </remarks>
 
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.OpenApi.Models;
-using System.Diagnostics;
-using System.Reflection;
-using ServerApp.Models;
-
-var builder = WebApplication.CreateBuilder(args);
-
 // Add services to the container
 builder.Services.AddEndpointsApiExplorer();
+
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -120,30 +120,21 @@ static Product[] GetProductData()
 
 // Configure application services and middleware
 
-/// <summary>
-/// Configure logging for performance monitoring and diagnostics
-/// - Clears default providers
-/// - Adds console logging
-/// - Sets minimum log level to Information
-/// </summary>
+// Configure logging for performance monitoring and diagnostics
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.SetMinimumLevel(LogLevel.Information);
 
-/// <summary>
-/// Add in-memory caching service for performance optimization
-/// Cache duration: 5 minutes absolute, 2 minutes sliding
-/// </summary>
+// Add in-memory caching service for performance optimization
+// Cache duration: 5 minutes absolute, 2 minutes sliding
 builder.Services.AddMemoryCache();
 
-/// <summary>
-/// Configure CORS policy for Blazor client
-/// Allows specific origins with any headers and methods
-/// </summary>
+// Configure CORS policy for Blazor client
+// Allows specific origins with any headers and methods
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowBlazorClient",
-        policy => policy.WithOrigins("http://localhost:5036", "https://localhost:5036")
+    options.AddDefaultPolicy(
+        policy => policy.WithOrigins("http://localhost:5037", "https://localhost:5037")
                         .AllowAnyHeader()
                         .AllowAnyMethod());
 });
@@ -154,49 +145,51 @@ var app = builder.Build();
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
 
 // Enable CORS
-app.UseCors("AllowBlazorClient");
+app.UseCors();
 
 // Log application startup
 logger.LogInformation("InventoryHub ServerApp starting up - Performance monitoring enabled");
 
 /// <summary>
-/// Endpoint: GET /api/productlist
-/// Retrieves a list of products with caching and performance monitoring
+/// Returns an empty paginated list of products
 /// </summary>
-/// <remarks>
-/// Cache Strategy:
-/// - 5 minute absolute expiration
-/// - 2 minute sliding window
-/// - Returns cached data when available
-/// 
-/// Performance Monitoring:
-/// - Logs response time for cache hits and misses
-/// - Tracks exceptions with timing information
-/// 
-/// Response Format:
-/// Returns an array of product objects with categories
-/// </remarks>
-/// <response code="200">Returns the list of products</response>
-/// <response code="500">If an error occurs during processing</response>
-/// <summary>
-/// GET /api/productlist - Retrieves all products with caching
-/// </summary>
-app.MapGet("/api/productlist", (IMemoryCache cache, ILogger<Program> logger) =>
+PaginatedList<Product> GetEmptyPaginatedList() => new()
+{
+    PageNumber = 1,
+    PageSize = 10,
+    TotalCount = 0,
+    TotalPages = 0,
+    Items = Array.Empty<Product>()
+};
+
+// GET /api/productlist - Retrieves all products with caching
+// - Uses memory cache with 5-minute expiration
+// - Implements performance monitoring
+// - Returns paginated list of products with categories
+app.MapGet("/api/productlist", (HttpContext context, IMemoryCache cache, ILogger<Program> logger) =>
 {
     var sw = Stopwatch.StartNew();
     const string cacheKey = "productlist";
     
     try
     {
-        if (cache.TryGetValue(cacheKey, out object[]? cachedProducts))
+        if (cache.TryGetValue(cacheKey, out PaginatedList<Product>? cachedProducts))
         {
             sw.Stop();
             logger.LogInformation("GET /api/productlist responded in {ElapsedMs} ms (CACHE HIT)", sw.ElapsedMilliseconds);
-            return cachedProducts;
+            return Results.Ok(cachedProducts ?? GetEmptyPaginatedList());
         }
         
         logger.LogInformation("Cache miss - generating product data");
         var products = GetProductData();
+        var paginatedList = new PaginatedList<Product>
+        {
+            Items = products,
+            PageNumber = 1,
+            PageSize = products.Length,
+            TotalCount = products.Length,
+            TotalPages = 1
+        };
         
         var cacheOptions = new MemoryCacheEntryOptions
         {
@@ -204,11 +197,11 @@ app.MapGet("/api/productlist", (IMemoryCache cache, ILogger<Program> logger) =>
             SlidingExpiration = TimeSpan.FromMinutes(2)
         };
         
-        cache.Set(cacheKey, products, cacheOptions);
+        cache.Set(cacheKey, paginatedList, cacheOptions);
         
         sw.Stop();
         logger.LogInformation("GET /api/productlist responded in {ElapsedMs} ms (CACHE MISS - Data generated and cached)", sw.ElapsedMilliseconds);
-        return products;
+        return Results.Ok(paginatedList);
     }
     catch (Exception ex)
     {
@@ -218,20 +211,10 @@ app.MapGet("/api/productlist", (IMemoryCache cache, ILogger<Program> logger) =>
     }
 });
 
-/// <summary>
-/// GET /api/product/{id} - Retrieves a specific product by ID with caching
-/// </summary>
-/// <remarks>
-/// Cache Strategy:
-/// - Individual product caching
-/// - 5 minute absolute expiration
-/// - 2 minute sliding window
-/// Performance Monitoring:
-/// - Logs response time and cache status
-/// </remarks>
-/// <response code="200">Returns the requested product</response>
-/// <response code="404">If product not found</response>
-/// <response code="500">If an error occurs during processing</response>
+// GET /api/product/{id} - Retrieves a specific product by ID
+// - Uses individual product caching (5-minute expiration)
+// - Implements performance monitoring
+// - Returns 200 with product, 404 if not found
 app.MapGet("/api/product/{id}", (int id, IMemoryCache cache, ILogger<Program> logger) =>
 {
     var sw = Stopwatch.StartNew();
@@ -276,17 +259,10 @@ app.MapGet("/api/product/{id}", (int id, IMemoryCache cache, ILogger<Program> lo
     }
 });
 
-/// <summary>
-/// POST /api/product - Creates a new product
-/// </summary>
-/// <remarks>
-/// - Validates input data
-/// - Updates cache to reflect new product
-/// - Logs creation details
-/// </remarks>
-/// <response code="201">Returns the created product</response>
-/// <response code="400">If the product data is invalid</response>
-/// <response code="500">If an error occurs during processing</response>
+// POST /api/product - Creates a new product
+// - Validates input data
+// - Updates cache to reflect new product
+// - Returns 201 with created product, 400 if invalid
 app.MapPost("/api/product", (CreateProductRequest request, IMemoryCache cache, ILogger<Program> logger) =>
 {
     var sw = Stopwatch.StartNew();
@@ -329,18 +305,10 @@ app.MapPost("/api/product", (CreateProductRequest request, IMemoryCache cache, I
     }
 });
 
-/// <summary>
-/// PUT /api/product/{id} - Updates an existing product
-/// </summary>
-/// <remarks>
-/// - Validates input data
-/// - Updates cache to reflect changes
-/// - Logs update details
-/// </remarks>
-/// <response code="200">Returns the updated product</response>
-/// <response code="400">If the product data is invalid</response>
-/// <response code="404">If product not found</response>
-/// <response code="500">If an error occurs during processing</response>
+// PUT /api/product/{id} - Updates an existing product
+// - Validates input data
+// - Updates cache to reflect changes
+// - Returns 200 with updated product, 400 if invalid, 404 if not found
 app.MapPut("/api/product/{id}", (int id, UpdateProductRequest request, IMemoryCache cache, ILogger<Program> logger) =>
 {
     var sw = Stopwatch.StartNew();
@@ -389,17 +357,10 @@ app.MapPut("/api/product/{id}", (int id, UpdateProductRequest request, IMemoryCa
     }
 });
 
-/// <summary>
-/// DELETE /api/product/{id} - Removes a product
-/// </summary>
-/// <remarks>
-/// - Validates product exists
-/// - Updates cache to reflect deletion
-/// - Logs deletion details
-/// </remarks>
-/// <response code="204">If product was successfully deleted</response>
-/// <response code="404">If product not found</response>
-/// <response code="500">If an error occurs during processing</response>
+// DELETE /api/product/{id} - Removes a product
+// - Validates product exists
+// - Updates cache to reflect deletion
+// - Returns 204 on success, 404 if not found
 app.MapDelete("/api/product/{id}", (int id, IMemoryCache cache, ILogger<Program> logger) =>
 {
     var sw = Stopwatch.StartNew();
@@ -435,12 +396,6 @@ app.MapDelete("/api/product/{id}", (int id, IMemoryCache cache, ILogger<Program>
 // Configure static files first
 app.UseStaticFiles();
 
-// Configure CORS (if not already configured)
-app.UseCors(builder => builder
-    .AllowAnyOrigin()
-    .AllowAnyMethod()
-    .AllowAnyHeader());
-
 // Configure Swagger and Swagger UI
 if (app.Environment.IsDevelopment())
 {
@@ -456,9 +411,6 @@ if (app.Environment.IsDevelopment())
         options.DefaultModelExpandDepth(2);
     });
 }
-
-// Configure root redirect to Swagger UI
-app.MapGet("/", () => Results.Redirect("/index.html"));
 
 logger.LogInformation("InventoryHub ServerApp configured and ready to serve requests");
 
