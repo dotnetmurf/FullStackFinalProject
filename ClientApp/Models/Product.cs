@@ -1,14 +1,11 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace ClientApp.Models;
 
 /// <summary>
 /// Represents a product in the inventory system
 /// </summary>
-/// <remarks>
-/// This class contains all essential product information including
-/// basic details, pricing, inventory status, and categorization
-/// </remarks>
 public class Product
 {
     /// <summary>
@@ -20,47 +17,78 @@ public class Product
     /// Name of the product
     /// </summary>
     [Required(ErrorMessage = "Product name is required")]
-    [StringLength(200, MinimumLength = 3, ErrorMessage = "Product name must be between 3 and 200 characters")]
-    [Display(Name = "Product Name")]
+    [StringLength(100, ErrorMessage = "Name cannot be longer than 100 characters")]
     public string Name { get; set; } = string.Empty;
 
     /// <summary>
     /// Description of the product
     /// </summary>
-    [StringLength(1000, ErrorMessage = "Description cannot exceed 1000 characters")]
-    [Display(Name = "Description")]
+    [StringLength(500, ErrorMessage = "Description cannot be longer than 500 characters")]
+    public string Description { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Price of the product in the system's currency
+    /// </summary>
+    [Range(0.01, double.MaxValue, ErrorMessage = "Price must be greater than 0")]
+    public decimal Price { get; set; }
+
+    /// <summary>
+    /// Current stock level of the product
+    /// </summary>
+    [Range(0, int.MaxValue, ErrorMessage = "Stock cannot be negative")]
+    public int Stock { get; set; }
+
+    /// <summary>
+    /// Category classification of the product
+    /// </summary>
+    public Category Category { get; set; } = new();
+
+    /// <summary>
+    /// The timestamp when the product was created
+    /// </summary>
+    [JsonPropertyName("createdAt")]
+    public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// The timestamp when the product was last updated
+    /// </summary>
+    [JsonPropertyName("updatedAt")]
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>
+/// Request model for creating or updating a product
+/// </summary>
+public class ProductRequest
+{
+    /// <summary>
+    /// Name of the product
+    /// </summary>
+    [Required(ErrorMessage = "Product name is required")]
+    [StringLength(100, ErrorMessage = "Name cannot be longer than 100 characters")]
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Description of the product
+    /// </summary>
+    [StringLength(500, ErrorMessage = "Description cannot be longer than 500 characters")]
     public string Description { get; set; } = string.Empty;
 
     /// <summary>
     /// Price of the product
     /// </summary>
-    [Required(ErrorMessage = "Price is required")]
-    [Range(0.01, 999999.99, ErrorMessage = "Price must be between $0.01 and $999,999.99")]
-    [Display(Name = "Price ($)")]
-    public double Price { get; set; }
+    [Range(0.01, double.MaxValue, ErrorMessage = "Price must be greater than 0")]
+    public decimal Price { get; set; }
 
     /// <summary>
-    /// Current stock level
+    /// Stock level of the product
     /// </summary>
-    [Required(ErrorMessage = "Stock quantity is required")]
     [Range(0, int.MaxValue, ErrorMessage = "Stock cannot be negative")]
-    [Display(Name = "Stock Quantity")]
     public int Stock { get; set; }
 
     /// <summary>
-    /// Category information for the product
+    /// ID of the product's category
     /// </summary>
-    [Required(ErrorMessage = "Category is required")]
-    [Display(Name = "Category")]
-    public Category Category { get; set; } = new();
-
-    /// <summary>
-    /// Date and time when the product was created
-    /// </summary>
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    /// <summary>
-    /// Date and time when the product was last updated
-    /// </summary>
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    [Range(1, int.MaxValue, ErrorMessage = "Category must be selected")]
+    public int CategoryId { get; set; }
 }
