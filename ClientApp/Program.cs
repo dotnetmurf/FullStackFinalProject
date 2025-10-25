@@ -8,7 +8,7 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 // Configure HttpClient with base address
-builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:5118") });
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:5132") });
 
 // Add memory cache
 builder.Services.AddMemoryCache();

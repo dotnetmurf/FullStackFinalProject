@@ -1,0 +1,113 @@
+@using ClientApp.Models
+
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>
+                    <button class="btn btn-link" @onclick="@(() => HandleSort("Name"))">
+                        Name @(GetSortIndicator("Name"))
+                    </button>
+                </th>
+                <th>Category</th>
+                <th>
+                    <button class="btn btn-link" @onclick="@(() => HandleSort("Price"))">
+                        Price @(GetSortIndicator("Price"))
+                    </button>
+                </th>
+                <th>
+                    <button class="btn btn-link" @onclick="@(() => HandleSort("Stock"))">
+                        Stock @(GetSortIndicator("Stock"))
+                    </button>
+                </th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Products?.Items != null)
+            {
+                @foreach (var product in Products.Items)
+                {
+                    <tr>
+                        <td>@product.Name</td>
+                        <td>@product.Category?.Name</td>
+                        <td>@product.Price.ToString("C")</td>
+                        <td>@product.Stock</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary me-2" @onclick="@(() => OnEdit.InvokeAsync(product))">
+                                <i class="bi bi-pencil"></i> Edit
+                            </button>
+                            <button class="btn btn-sm btn-danger" @onclick="@(() => OnDelete.InvokeAsync(product))">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+</div>
+
+@if (Products != null)
+{
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <div>
+            Showing @Products.Items.Count() of @Products.TotalCount items
+        </div>
+        <nav aria-label="Product navigation">
+            <ul class="pagination">
+                <li class="page-item @(Products.HasPreviousPage ? "" : "disabled")">
+                    <button class="page-link" @onclick="@(() => OnPageChange.InvokeAsync(Products.PageNumber - 1))" disabled="@(!Products.HasPreviousPage)">
+                        Previous
+                    </button>
+                </li>
+                @for (int i = 1; i <= Products.TotalPages; i++)
+                {
+                    var pageNumber = i;
+                    <li class="page-item @(pageNumber == Products.PageNumber ? "active" : "")">
+                        <button class="page-link" @onclick="@(() => OnPageChange.InvokeAsync(pageNumber))">
+                            @pageNumber
+                        </button>
+                    </li>
+                }
+                <li class="page-item @(Products.HasNextPage ? "" : "disabled")">
+                    <button class="page-link" @onclick="@(() => OnPageChange.InvokeAsync(Products.PageNumber + 1))" disabled="@(!Products.HasNextPage)">
+                        Next
+                    </button>
+                </li>
+            </ul>
+        </nav>
+    </div>
+}
+
+@code {
+    private string? currentSortField;
+    private bool isAscending = true;
+
+    [Parameter] public PaginatedList<Product>? Products { get; set; }
+    [Parameter] public EventCallback<Product> OnEdit { get; set; }
+    [Parameter] public EventCallback<Product> OnDelete { get; set; }
+    [Parameter] public EventCallback<int> OnPageChange { get; set; }
+    [Parameter] public EventCallback<(string Field, bool IsAscending)> OnSort { get; set; }
+
+    private async Task HandleSort(string field)
+    {
+        if (field == currentSortField)
+        {
+            isAscending = !isAscending;
+        }
+        else
+        {
+            currentSortField = field;
+            isAscending = true;
+        }
+
+        await OnSort.InvokeAsync((field, isAscending));
+    }
+
+    private string GetSortIndicator(string field)
+    {
+        if (field != currentSortField) return "";
+        return isAscending ? "↑" : "↓";
+    }
+}

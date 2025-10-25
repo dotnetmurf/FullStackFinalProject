@@ -6,18 +6,6 @@ using Microsoft.Extensions.Logging;
 namespace ClientApp.Services;
 
 /// <summary>
-/// Service for managing product-related operations
-/// </summary>
-public interface IProductService
-{
-    Task<PaginatedList<Product>> GetProductsAsync(int pageNumber = 1, int pageSize = 10);
-    Task<Product?> GetProductAsync(int id);
-    Task<Product> CreateProductAsync(ProductRequest request);
-    Task<Product> UpdateProductAsync(int id, ProductRequest request);
-    Task DeleteProductAsync(int id);
-}
-
-/// <summary>
 /// Implementation of the product service
 /// </summary>
 public class ProductService : IProductService

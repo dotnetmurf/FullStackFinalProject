@@ -74,7 +74,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(
-        policy => policy.WithOrigins("http://localhost:5037", "https://localhost:5037")
+        policy => policy.WithOrigins("http://localhost:5019", "https://localhost:7253")
                         .AllowAnyHeader()
                         .AllowAnyMethod());
 });
