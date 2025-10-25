@@ -11,10 +11,49 @@
 /// </remarks>
 
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.OpenApi.Models;
 using System.Diagnostics;
+using System.Reflection;
 using ServerApp.Models;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "InventoryHub API",
+        Version = "v1",
+        Description = "A minimal API for product inventory management",
+        Contact = new OpenApiContact
+        {
+            Name = "Development Team",
+            Email = "dev@inventoryhub.com"
+        }
+    });
+
+    // Enable XML comments
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    options.IncludeXmlComments(xmlPath);
+
+    // Enable annotations
+    options.EnableAnnotations();
+
+    // Add security definition if needed
+    /*
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer"
+    });
+    */
+});
 
 /// <summary>
 /// Provides sample product data with nested category information
@@ -392,6 +431,34 @@ app.MapDelete("/api/product/{id}", (int id, IMemoryCache cache, ILogger<Program>
         throw;
     }
 });
+
+// Configure static files first
+app.UseStaticFiles();
+
+// Configure CORS (if not already configured)
+app.UseCors(builder => builder
+    .AllowAnyOrigin()
+    .AllowAnyMethod()
+    .AllowAnyHeader());
+
+// Configure Swagger and Swagger UI
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "InventoryHub API v1");
+        options.RoutePrefix = string.Empty; // Set to empty to serve the Swagger UI at the root
+        options.DocumentTitle = "InventoryHub API Documentation";
+        options.EnableTryItOutByDefault();
+        options.DisplayRequestDuration();
+        options.DefaultModelsExpandDepth(2);
+        options.DefaultModelExpandDepth(2);
+    });
+}
+
+// Configure root redirect to Swagger UI
+app.MapGet("/", () => Results.Redirect("/index.html"));
 
 logger.LogInformation("InventoryHub ServerApp configured and ready to serve requests");
 
