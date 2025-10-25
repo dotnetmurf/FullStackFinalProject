@@ -17,6 +17,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
 using ClientApp;
 using ClientApp.Services;
+using System.Net.Http.Json;
 
 // Create the WebAssembly host builder with default configuration
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
