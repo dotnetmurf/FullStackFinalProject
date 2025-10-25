@@ -1,8 +1,11 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.OpenApi.Models;
 using System.Diagnostics;
 using System.Reflection;
+using ServerApp.Data;
 using ServerApp.Models;
+using ServerApp.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +18,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 builder.Services.AddEndpointsApiExplorer();
+
+// Add Entity Framework Core with InMemory provider
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseInMemoryDatabase("InventoryHub"));
 
 builder.Services.AddSwaggerGen(options =>
 {
@@ -51,64 +58,6 @@ builder.Services.AddSwaggerGen(options =>
     */
 });
 
-// Provides sample product data with nested category information
-// This method simulates a database call and provides structured product data
-// Each product includes: Id, Name, Price, Stock, and Category (Id, Name)
-static Product[] GetProductData()
-{
-    return new Product[]
-    {
-        new()
-        {
-            Id = 1,
-            Name = "Laptop",
-            Price = 1200.50M,
-            Stock = 25,
-            Category = new Category { Id = 101, Name = "Electronics" }
-        },
-        new()
-        {
-            Id = 2,
-            Name = "Headphones",
-            Price = 50.00M,
-            Stock = 100,
-            Category = new Category { Id = 102, Name = "Accessories" }
-        },
-        new()
-        {
-            Id = 3,
-            Name = "Mouse",
-            Price = 25.99M,
-            Stock = 150,
-            Category = new Category { Id = 102, Name = "Accessories" }
-        },
-        new()
-        {
-            Id = 4,
-            Name = "Keyboard",
-            Price = 75.50M,
-            Stock = 80,
-            Category = new Category { Id = 102, Name = "Accessories" }
-        },
-        new()
-        {
-            Id = 5,
-            Name = "Monitor",
-            Price = 299.99M,
-            Stock = 45,
-            Category = new Category { Id = 101, Name = "Electronics" }
-        },
-        new()
-        {
-            Id = 6,
-            Name = "Webcam",
-            Price = 89.99M,
-            Stock = 75,
-            Category = new Category { Id = 101, Name = "Electronics" }
-        }
-    };
-}
-
 // Configure application services and middleware
 
 // Configure logging for performance monitoring and diagnostics
@@ -135,6 +84,9 @@ var app = builder.Build();
 // Get logger for startup messages
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
 
+// Initialize the database with seed data
+await DbInitializerService.InitializeAsync(app.Services);
+
 // Enable CORS
 app.UseCors();
 
@@ -155,7 +107,7 @@ PaginatedList<Product> GetEmptyPaginatedList() => new()
 // - Uses memory cache with 5-minute expiration
 // - Implements performance monitoring
 // - Returns paginated list of products with categories
-app.MapGet("/api/products", (HttpContext context, IMemoryCache cache, ILogger<Program> logger) =>
+app.MapGet("/api/products", async (HttpContext context, IMemoryCache cache, ILogger<Program> logger) =>
 {
     var sw = Stopwatch.StartNew();
     const string cacheKey = "products";
@@ -169,14 +121,15 @@ app.MapGet("/api/products", (HttpContext context, IMemoryCache cache, ILogger<Pr
             return Results.Ok(cachedProducts ?? GetEmptyPaginatedList());
         }
         
-        logger.LogInformation("Cache miss - generating product data");
-        var products = GetProductData();
+        logger.LogInformation("Cache miss - retrieving products from database");
+        var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
+        var products = await dbContext.Products.ToListAsync();
         var paginatedList = new PaginatedList<Product>
         {
             Items = products,
             PageNumber = 1,
-            PageSize = products.Length,
-            TotalCount = products.Length,
+            PageSize = products.Count,
+            TotalCount = products.Count,
             TotalPages = 1
         };
         
@@ -204,7 +157,7 @@ app.MapGet("/api/products", (HttpContext context, IMemoryCache cache, ILogger<Pr
 // - Uses individual product caching (5-minute expiration)
 // - Implements performance monitoring
 // - Returns 200 with product, 404 if not found
-app.MapGet("/api/product/{id}", (int id, IMemoryCache cache, ILogger<Program> logger) =>
+app.MapGet("/api/product/{id}", async (int id, HttpContext context, IMemoryCache cache, ILogger<Program> logger) =>
 {
     var sw = Stopwatch.StartNew();
     var cacheKey = $"product_{id}";
@@ -218,8 +171,9 @@ app.MapGet("/api/product/{id}", (int id, IMemoryCache cache, ILogger<Program> lo
             return cachedProduct is not null ? Results.Ok(cachedProduct) : Results.NotFound();
         }
         
-        logger.LogInformation("Cache miss - retrieving product {Id}", id);
-        var product = GetProductData().FirstOrDefault(p => p.Id == id);
+        logger.LogInformation("Cache miss - retrieving product {Id} from database", id);
+        var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
+        var product = await dbContext.Products.FirstOrDefaultAsync(p => p.Id == id);
         
         if (product == null)
         {
@@ -252,7 +206,7 @@ app.MapGet("/api/product/{id}", (int id, IMemoryCache cache, ILogger<Program> lo
 // - Validates input data
 // - Updates cache to reflect new product
 // - Returns 201 with created product, 400 if invalid
-app.MapPost("/api/product", (CreateProductRequest request, IMemoryCache cache, ILogger<Program> logger) =>
+app.MapPost("/api/product", async (CreateProductRequest request, HttpContext context, IMemoryCache cache, ILogger<Program> logger) =>
 {
     var sw = Stopwatch.StartNew();
     
@@ -266,9 +220,9 @@ app.MapPost("/api/product", (CreateProductRequest request, IMemoryCache cache, I
             return Results.BadRequest("Name is required");
         }
         
-        // Simulate database insert by adding to existing data
-        var products = GetProductData().ToList();
-        int newId = products.Max(p => p.Id) + 1;
+        var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
+        var maxId = await dbContext.Products.MaxAsync(p => p.Id);
+        int newId = maxId + 1;
         
         var newProduct = new Product
         {
@@ -278,6 +232,9 @@ app.MapPost("/api/product", (CreateProductRequest request, IMemoryCache cache, I
             Stock = request.Stock,
             Category = request.Category
         };
+        
+        await dbContext.Products.AddAsync(newProduct);
+        await dbContext.SaveChangesAsync();
         
         // Invalidate relevant caches
         cache.Remove("products");
@@ -298,14 +255,14 @@ app.MapPost("/api/product", (CreateProductRequest request, IMemoryCache cache, I
 // - Validates input data
 // - Updates cache to reflect changes
 // - Returns 200 with updated product, 400 if invalid, 404 if not found
-app.MapPut("/api/product/{id}", (int id, UpdateProductRequest request, IMemoryCache cache, ILogger<Program> logger) =>
+app.MapPut("/api/product/{id}", async (int id, UpdateProductRequest request, HttpContext context, IMemoryCache cache, ILogger<Program> logger) =>
 {
     var sw = Stopwatch.StartNew();
     
     try
     {
-        var products = GetProductData();
-        var existingProduct = products.FirstOrDefault(p => p.Id == id);
+        var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
+        var existingProduct = await dbContext.Products.FindAsync(id);
         
         if (existingProduct == null)
         {
@@ -321,14 +278,12 @@ app.MapPut("/api/product/{id}", (int id, UpdateProductRequest request, IMemoryCa
             return Results.BadRequest("Name is required");
         }
         
-        var updatedProduct = new Product
-        {
-            Id = id,
-            Name = request.Name,
-            Price = request.Price,
-            Stock = request.Stock,
-            Category = request.Category
-        };
+        existingProduct.Name = request.Name;
+        existingProduct.Price = request.Price;
+        existingProduct.Stock = request.Stock;
+        existingProduct.Category = request.Category;
+        
+        await dbContext.SaveChangesAsync();
         
         // Invalidate relevant caches
         cache.Remove("products");
@@ -336,7 +291,7 @@ app.MapPut("/api/product/{id}", (int id, UpdateProductRequest request, IMemoryCa
         
         sw.Stop();
         logger.LogInformation("PUT /api/product/{Id} updated in {ElapsedMs} ms", id, sw.ElapsedMilliseconds);
-        return Results.Ok(updatedProduct);
+        return Results.Ok(existingProduct);
     }
     catch (Exception ex)
     {
@@ -350,14 +305,14 @@ app.MapPut("/api/product/{id}", (int id, UpdateProductRequest request, IMemoryCa
 // - Validates product exists
 // - Updates cache to reflect deletion
 // - Returns 204 on success, 404 if not found
-app.MapDelete("/api/product/{id}", (int id, IMemoryCache cache, ILogger<Program> logger) =>
+app.MapDelete("/api/product/{id}", async (int id, HttpContext context, IMemoryCache cache, ILogger<Program> logger) =>
 {
     var sw = Stopwatch.StartNew();
     
     try
     {
-        var products = GetProductData();
-        var existingProduct = products.FirstOrDefault(p => ((dynamic)p).Id == id);
+        var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
+        var existingProduct = await dbContext.Products.FindAsync(id);
         
         if (existingProduct == null)
         {
@@ -365,6 +320,9 @@ app.MapDelete("/api/product/{id}", (int id, IMemoryCache cache, ILogger<Program>
             logger.LogWarning("DELETE /api/product/{Id} - Product not found", id);
             return Results.NotFound();
         }
+        
+        dbContext.Products.Remove(existingProduct);
+        await dbContext.SaveChangesAsync();
         
         // Invalidate relevant caches
         cache.Remove("products");
