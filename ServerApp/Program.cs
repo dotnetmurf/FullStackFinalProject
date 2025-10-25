@@ -6,16 +6,12 @@ using ServerApp.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
-/// <summary>
-/// Configure services for the InventoryHub application
-/// </summary>
-/// <remarks>
-/// Features:
-/// - In-memory caching with 5-minute expiration
-/// - Performance monitoring and logging
-/// - CORS support for Blazor client
-/// - Error handling and monitoring
-/// </remarks>
+// Configure services for the InventoryHub application
+// Features:
+// - In-memory caching with 5-minute expiration
+// - Performance monitoring and logging
+// - CORS support for Blazor client
+// - Error handling and monitoring
 
 // Add services to the container
 builder.Services.AddEndpointsApiExplorer();
@@ -55,14 +51,9 @@ builder.Services.AddSwaggerGen(options =>
     */
 });
 
-/// <summary>
-/// Provides sample product data with nested category information
-/// </summary>
-/// <returns>Array of anonymous objects representing products with categories</returns>
-/// <remarks>
-/// This method simulates a database call and provides structured product data
-/// Each product includes: Id, Name, Price, Stock, and Category (Id, Name)
-/// </remarks>
+// Provides sample product data with nested category information
+// This method simulates a database call and provides structured product data
+// Each product includes: Id, Name, Price, Stock, and Category (Id, Name)
 static Product[] GetProductData()
 {
     return new Product[]
@@ -71,7 +62,7 @@ static Product[] GetProductData()
         {
             Id = 1,
             Name = "Laptop",
-            Price = 1200.50,
+            Price = 1200.50M,
             Stock = 25,
             Category = new Category { Id = 101, Name = "Electronics" }
         },
@@ -79,7 +70,7 @@ static Product[] GetProductData()
         {
             Id = 2,
             Name = "Headphones",
-            Price = 50.00,
+            Price = 50.00M,
             Stock = 100,
             Category = new Category { Id = 102, Name = "Accessories" }
         },
@@ -87,7 +78,7 @@ static Product[] GetProductData()
         {
             Id = 3,
             Name = "Mouse",
-            Price = 25.99,
+            Price = 25.99M,
             Stock = 150,
             Category = new Category { Id = 102, Name = "Accessories" }
         },
@@ -95,7 +86,7 @@ static Product[] GetProductData()
         {
             Id = 4,
             Name = "Keyboard",
-            Price = 75.50,
+            Price = 75.50M,
             Stock = 80,
             Category = new Category { Id = 102, Name = "Accessories" }
         },
@@ -103,7 +94,7 @@ static Product[] GetProductData()
         {
             Id = 5,
             Name = "Monitor",
-            Price = 299.99,
+            Price = 299.99M,
             Stock = 45,
             Category = new Category { Id = 101, Name = "Electronics" }
         },
@@ -111,7 +102,7 @@ static Product[] GetProductData()
         {
             Id = 6,
             Name = "Webcam",
-            Price = 89.99,
+            Price = 89.99M,
             Stock = 75,
             Category = new Category { Id = 101, Name = "Electronics" }
         }
@@ -150,9 +141,7 @@ app.UseCors();
 // Log application startup
 logger.LogInformation("InventoryHub ServerApp starting up - Performance monitoring enabled");
 
-/// <summary>
-/// Returns an empty paginated list of products
-/// </summary>
+// Returns an empty paginated list of products
 PaginatedList<Product> GetEmptyPaginatedList() => new()
 {
     PageNumber = 1,
@@ -162,21 +151,21 @@ PaginatedList<Product> GetEmptyPaginatedList() => new()
     Items = Array.Empty<Product>()
 };
 
-// GET /api/productlist - Retrieves all products with caching
+// GET /api/products - Retrieves all products with caching
 // - Uses memory cache with 5-minute expiration
 // - Implements performance monitoring
 // - Returns paginated list of products with categories
-app.MapGet("/api/productlist", (HttpContext context, IMemoryCache cache, ILogger<Program> logger) =>
+app.MapGet("/api/products", (HttpContext context, IMemoryCache cache, ILogger<Program> logger) =>
 {
     var sw = Stopwatch.StartNew();
-    const string cacheKey = "productlist";
+    const string cacheKey = "products";
     
     try
     {
         if (cache.TryGetValue(cacheKey, out PaginatedList<Product>? cachedProducts))
         {
             sw.Stop();
-            logger.LogInformation("GET /api/productlist responded in {ElapsedMs} ms (CACHE HIT)", sw.ElapsedMilliseconds);
+            logger.LogInformation("GET /api/products responded in {ElapsedMs} ms (CACHE HIT)", sw.ElapsedMilliseconds);
             return Results.Ok(cachedProducts ?? GetEmptyPaginatedList());
         }
         
@@ -200,13 +189,13 @@ app.MapGet("/api/productlist", (HttpContext context, IMemoryCache cache, ILogger
         cache.Set(cacheKey, paginatedList, cacheOptions);
         
         sw.Stop();
-        logger.LogInformation("GET /api/productlist responded in {ElapsedMs} ms (CACHE MISS - Data generated and cached)", sw.ElapsedMilliseconds);
+        logger.LogInformation("GET /api/products responded in {ElapsedMs} ms (CACHE MISS - Data generated and cached)", sw.ElapsedMilliseconds);
         return Results.Ok(paginatedList);
     }
     catch (Exception ex)
     {
         sw.Stop();
-        logger.LogError(ex, "GET /api/productlist failed after {ElapsedMs} ms", sw.ElapsedMilliseconds);
+        logger.LogError(ex, "GET /api/products failed after {ElapsedMs} ms", sw.ElapsedMilliseconds);
         throw;
     }
 });
@@ -291,7 +280,7 @@ app.MapPost("/api/product", (CreateProductRequest request, IMemoryCache cache, I
         };
         
         // Invalidate relevant caches
-        cache.Remove("productlist");
+        cache.Remove("products");
         
         sw.Stop();
         logger.LogInformation("POST /api/product created product {Id} in {ElapsedMs} ms", newId, sw.ElapsedMilliseconds);
@@ -342,7 +331,7 @@ app.MapPut("/api/product/{id}", (int id, UpdateProductRequest request, IMemoryCa
         };
         
         // Invalidate relevant caches
-        cache.Remove("productlist");
+        cache.Remove("products");
         cache.Remove($"product_{id}");
         
         sw.Stop();
@@ -378,7 +367,7 @@ app.MapDelete("/api/product/{id}", (int id, IMemoryCache cache, ILogger<Program>
         }
         
         // Invalidate relevant caches
-        cache.Remove("productlist");
+        cache.Remove("products");
         cache.Remove($"product_{id}");
         
         sw.Stop();

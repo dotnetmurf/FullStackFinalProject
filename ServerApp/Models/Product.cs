@@ -43,6 +43,11 @@ public class Product
     public int Stock { get; set; }
 
     /// <summary>
+    /// Category classification of the product
+    /// </summary>
+    public Category Category { get; set; } = new();
+
+    /// <summary>
     /// The timestamp when the product was created
     /// </summary>
     [JsonPropertyName("createdAt")]
@@ -89,6 +94,11 @@ public class CreateProductRequest
     /// </summary>
     [Range(0, int.MaxValue, ErrorMessage = "Stock cannot be negative")]
     public int Stock { get; set; }
+
+    /// <summary>
+    /// Category for the new product
+    /// </summary>
+    public Category Category { get; set; } = new();
 }
 
 /// <summary>
@@ -125,22 +135,9 @@ public class UpdateProductRequest
     /// </summary>
     [Range(0, int.MaxValue, ErrorMessage = "Stock cannot be negative")]
     public int Stock { get; set; }
-}
-    /// </summary>
-    public string Name { get; set; } = string.Empty;
 
     /// <summary>
-    /// Updated price of the product
-    /// </summary>
-    public double Price { get; set; }
-
-    /// <summary>
-    /// Updated stock level of the product
-    /// </summary>
-    public int Stock { get; set; }
-
-    /// <summary>
-    /// Updated category assignment for the product
+    /// Updated category for the product
     /// </summary>
     public Category Category { get; set; } = new();
 }
