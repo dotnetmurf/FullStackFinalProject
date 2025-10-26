@@ -25,7 +25,7 @@
         </div>
     </div>
     <div class="col-md-2">
-        <select class="form-select" @bind="pageSize">
+        <select class="form-select" @bind="pageSize" @bind:event="oninput" @bind:after="HandlePageSizeChange">
             <option value="10">10 per page</option>
             <option value="20">20 per page</option>
             <option value="50">50 per page</option>
@@ -126,5 +126,11 @@
             Logger.LogError(ex, "Error deleting product {ProductId}", product.Id);
             errorMessage = "Error deleting product. Please try again later.";
         }
+    }
+
+    private async Task HandlePageSizeChange()
+    {
+        currentPage = 1; // Reset to first page when changing page size
+        await LoadProducts();
     }
 }

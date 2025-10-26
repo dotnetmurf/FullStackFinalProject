@@ -103,14 +103,21 @@ PaginatedList<Product> GetEmptyPaginatedList() => new()
     Items = Array.Empty<Product>()
 };
 
-// GET /api/products - Retrieves all products with caching
+// GET /api/products - Retrieves all products with caching and pagination
 // - Uses memory cache with 5-minute expiration
 // - Implements performance monitoring
-// - Returns paginated list of products with categories
-app.MapGet("/api/products", async (HttpContext context, IMemoryCache cache, ILogger<Program> logger) =>
+// Returns paginated list of products with categories
+app.MapGet("/api/products", async (
+    [AsParameters] PaginationParams pagination,
+    HttpContext context,
+    IMemoryCache cache,
+    ILogger<Program> logger) =>
 {
+    // Apply defaults if not provided
+    var pageNumber = Math.Max(1, pagination.PageNumber);
+    var pageSize = pagination.PageSize <= 0 ? 10 : pagination.PageSize;
     var sw = Stopwatch.StartNew();
-    const string cacheKey = "products";
+    var cacheKey = $"products_page{pageNumber}_size{pageSize}";
     
     try
     {
@@ -123,14 +130,24 @@ app.MapGet("/api/products", async (HttpContext context, IMemoryCache cache, ILog
         
         logger.LogInformation("Cache miss - retrieving products from database");
         var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
-        var products = await dbContext.Products.ToListAsync();
+        var query = dbContext.Products.AsQueryable();
+
+        // Get total count for pagination
+        var totalCount = await query.CountAsync();
+
+        // Apply pagination
+        var products = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
         var paginatedList = new PaginatedList<Product>
         {
             Items = products,
-            PageNumber = 1,
-            PageSize = products.Count,
-            TotalCount = products.Count,
-            TotalPages = 1
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalCount = totalCount,
+            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
         };
         
         var cacheOptions = new MemoryCacheEntryOptions
