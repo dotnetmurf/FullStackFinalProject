@@ -1,0 +1,87 @@
+@page "/products/create"
+@using ClientApp.Models
+@using ClientApp.Services
+@using ClientApp.Components
+@inject IProductService ProductService
+@inject NavigationManager NavigationManager
+
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/products">Products</a></li>
+            <li class="breadcrumb-item active">Create</li>
+        </ol>
+    </nav>
+
+    @if (isLoading)
+    {
+        <LoadingIndicator />
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">
+            @errorMessage
+        </div>
+    }
+    else
+    {
+        <ProductForm Categories="categories"
+                    OnSubmit="HandleCreateProduct"
+                    OnCancel="NavigateBack" />
+    }
+</div>
+
+@code {
+    private List<Category>? categories;
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // TODO: Add GetCategoriesAsync to IProductService and implement it
+            // For now, we'll get categories from the first page of products
+            var products = await ProductService.GetProductsAsync();
+            categories = products.Items
+                .Select(p => p.Category!)
+                .DistinctBy(c => c.Id)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to load categories. Please try again later.";
+            Console.Error.WriteLine($"Error loading categories: {ex}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleCreateProduct(ProductRequest request)
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+
+            await ProductService.CreateProductAsync(request);
+            NavigateBack();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to create product. Please try again.";
+            Console.Error.WriteLine($"Error creating product: {ex}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void NavigateBack()
+    {
+        NavigationManager.NavigateTo("/products");
+    }
+}

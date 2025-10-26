@@ -106,12 +106,12 @@
 
     private void NavigateToCreate()
     {
-        NavigationManager.NavigateTo("/product/create");
+        NavigationManager.NavigateTo("/products/create");
     }
 
     private void NavigateToEdit(Product product)
     {
-        NavigationManager.NavigateTo($"/product/edit/{product.Id}");
+        NavigationManager.NavigateTo($"/products/edit/{product.Id}");
     }
 
     private async Task HandleDelete(Product product)
