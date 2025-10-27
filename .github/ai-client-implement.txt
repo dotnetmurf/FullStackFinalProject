@@ -844,3 +844,351 @@ Both components are fully documented with XML comments following .NET best pract
 **Ready for Phase 3?** The next phase involves creating the five CRUD pages that will use these shared components. Would you like me to proceed with Phase 3?
 
 Made changes.
+
+dotnetmurf: Follow instructions in [client.prompt.md](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/.github/client.prompt.md).
+Please implement 3.1 Create Products List Page of the plan.
+
+GitHub Copilot: I'll create the Products List Page (3.1) according to the plan. 
+
+Created [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/Products.razor)
+
+The lint errors are expected and should resolve during build. Now let me verify the build to confirm step 3.1 is complete: 
+
+Ran terminal command: dotnet build
+
+Perfect! ✅ **Phase 3.1 is complete and builds successfully!**
+
+## What I Created
+
+### Products.razor (Products List Page)
+Located at: Products.razor
+
+**Key Features:**
+- **Route:** `/products` - Main product listing page
+- **Dependency Injection:** Uses `ProductService` for API calls and `NavigationManager` for routing
+- **UI Components:**
+  - Page header with "Add New Product" button
+  - Error message display with dismissible alert
+  - Loading spinner during data fetch
+  - Responsive grid layout (3 columns on large screens, 2 on medium, 1 on small)
+  - Uses `ProductCard` component to display each product
+  - Pagination information display
+  - Empty state message when no products exist
+
+**State Management:**
+- `products` - Holds paginated list of products
+- `isLoading` - Controls loading spinner visibility
+- `errorMessage` - Stores error messages for display
+
+**Methods:**
+- `OnInitializedAsync()` - Blazor lifecycle method that loads products on page initialization
+- `LoadProductsAsync()` - Fetches products from API with error handling
+- `NavigateToDetails(int productId)` - Navigates to product details page
+- `NavigateToCreate()` - Navigates to create product page
+
+**Error Handling:**
+- Catches `HttpRequestException` for server connection issues
+- Catches generic `Exception` for other errors
+- Displays user-friendly error messages in dismissible alert
+
+**Build Status:** ✅ Build succeeded in 4.3s
+
+---
+
+**Next Step:** Would you like me to proceed with **Phase 3.2 (Create Product Details Page)**?
+
+Made changes.
+
+dotnetmurf: Follow instructions in [client.prompt.md](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/.github/client.prompt.md).
+yes
+
+GitHub Copilot: I'll proceed with implementing the remaining pages in Phase 3. Let me create them in order:
+
+## 3.2 - Product Details Page 
+
+Created [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/ProductDetails.razor)
+
+Made changes.
+
+dotnetmurf: Follow instructions in [client.prompt.md](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/.github/client.prompt.md).
+Please implement 3.2 Create Product Details Page of the plan.
+
+GitHub Copilot: I'll create the Product Details Page (3.2) according to the plan. 
+
+Created [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/ProductDetails.razor)
+
+Let me check what exists in that file: 
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/ProductDetails.razor#1-1), lines 1 to 50
+
+Good! The file already exists. Let me verify it's complete and then run a build to confirm step 3.2 is done: 
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/ProductDetails.razor#51-51), lines 51 to 124
+
+Perfect! The ProductDetails.razor file already exists and is complete. Let me verify it builds successfully: 
+
+Ran terminal command: dotnet build
+
+Excellent! ✅ **Phase 3.2 is complete and builds successfully!**
+
+## Phase 3.2 Summary
+
+The **ProductDetails.razor** page already exists and is fully implemented with all required functionality:
+
+### Key Features:
+- **Route:** `/product/{id:int}` - Dynamic route accepting product ID parameter
+- **Dependency Injection:** Uses `ProductService` for API calls and `NavigationManager` for routing
+- **UI Components:**
+  - Page title: "Product Details - InventoryHub"
+  - Error message display (dismissible alert)
+  - Loading spinner during data fetch
+  - Card layout with header showing product name
+  - Definition list displaying all product details:
+    - Description
+    - Price (formatted as currency in green)
+    - Stock (with "units" label)
+    - Category (as badge)
+    - Category ID
+    - Created date (formatted as local time)
+  - Action buttons:
+    - Edit (primary button with pencil icon)
+    - Delete (danger button with trash icon)
+    - Back to List (secondary button with arrow icon)
+  - "Product not found" warning for null products
+
+### State Management:
+- `Id` parameter - Captures product ID from route
+- `product` - Holds the loaded product data
+- `isLoading` - Controls loading spinner visibility
+- `errorMessage` - Stores error messages for display
+
+### Methods:
+- `OnInitializedAsync()` - Blazor lifecycle method that loads product on page initialization
+- `LoadProductAsync()` - Fetches product by ID from API with error handling
+- `NavigateToEdit()` - Navigates to edit page for current product
+- `NavigateToDelete()` - Navigates to delete confirmation page
+- `NavigateToList()` - Returns to products list page
+
+### Error Handling:
+- Catches `HttpRequestException` for server connection issues
+- Catches generic `Exception` for other errors
+- Displays user-friendly error messages
+- Shows "Product not found" when product is null
+
+**Build Status:** ✅ Build succeeded in 3.8s
+
+---
+
+**Next Step:** Would you like me to proceed with **Phase 3.3 (Create Edit Product Page)**?
+
+dotnetmurf: Follow instructions in [client.prompt.md](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/.github/client.prompt.md).
+Please implement Phase 3.3 (Create Edit Product Page) of the plan.
+
+GitHub Copilot: I'll create the Edit Product Page (3.3) according to the plan. 
+
+Created [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/EditProduct.razor)
+
+The lint errors are expected and will resolve during build. Let me verify the build to confirm step 3.3 is complete: 
+
+Ran terminal command: dotnet build
+
+Perfect! ✅ **Phase 3.3 is complete and builds successfully!**
+
+## Phase 3.3 Summary
+
+I've created the **EditProduct.razor** page with all required functionality:
+
+### Key Features:
+- **Route:** `/product/edit/{id:int}` - Dynamic route accepting product ID to edit
+- **Dependency Injection:** Uses `ProductService` for API calls and `NavigationManager` for routing
+- **UI Components:**
+  - Page title: "Edit Product - InventoryHub"
+  - Page header: "Edit Product"
+  - Error message display (alert-danger)
+  - Loading spinner during data fetch
+  - Card layout containing the ProductForm component
+  - ProductForm configured with `IsEditMode="true"`
+  - "Product not found" warning for null products
+
+### State Management:
+- `Id` parameter - Captures product ID from route
+- `product` - Holds the loaded product data
+- `isLoading` - Controls loading spinner visibility
+- `errorMessage` - Stores error messages for display
+
+### Methods:
+- `OnInitializedAsync()` - Blazor lifecycle method that loads product on page initialization
+- `LoadProductAsync()` - Fetches product by ID from API with error handling
+- `HandleUpdate(Product updatedProduct)` - Processes form submission:
+  - Creates `UpdateProductRequest` DTO from form data
+  - Calls `ProductService.UpdateProductAsync()`
+  - Navigates to products list on success
+  - Displays error message on failure
+- `HandleCancel()` - Handles cancel action by navigating back to products list
+
+### Error Handling:
+- Catches `HttpRequestException` for server connection issues
+- Catches generic `Exception` for other errors
+- Displays user-friendly error messages
+- Shows "Product not found" when product is null
+- Prevents duplicate error messages during update operation
+
+### Integration:
+- Uses the reusable `ProductForm` component from Phase 2
+- Form is pre-populated with existing product data
+- Form displays "Update Product" button (due to `IsEditMode="true"`)
+- Seamless navigation between edit → list or edit → details
+
+**Build Status:** ✅ Build succeeded in 4.3s
+
+---
+
+**Next Step:** Would you like me to proceed with **Phase 3.4 (Create Delete Product Page)**?
+
+Made changes.
+
+dotnetmurf: Follow instructions in [client.prompt.md](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/.github/client.prompt.md).
+proceed with Phase 3.4 (Create Delete Product Page)
+
+GitHub Copilot: I'll create the Delete Product Page (3.4) according to the plan. 
+
+Created [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/DeleteProduct.razor)
+
+The lint error is expected and will resolve during build. Let me verify the build to confirm step 3.4 is complete: 
+
+Ran terminal command: dotnet build
+
+Perfect! ✅ **Phase 3.4 is complete and builds successfully!**
+
+The warnings are just because ServerApp is running and the build can't copy the exe file, but the build itself succeeded. The ClientApp compiled successfully.
+
+## Phase 3.4 Summary
+
+I've created the **DeleteProduct.razor** page with all required functionality:
+
+### Key Features:
+- **Route:** `/product/delete/{id:int}` - Dynamic route accepting product ID to delete
+- **Dependency Injection:** Uses `ProductService` for API calls and `NavigationManager` for routing
+- **UI Components:**
+  - Page title: "Delete Product - InventoryHub"
+  - Warning banner with icon explaining the action is irreversible
+  - Error message display (alert-danger)
+  - Loading spinner during product data fetch
+  - Card layout displaying product details for confirmation:
+    - Product name in card header
+    - Description, Price, Stock, Category in definition list
+  - Action buttons:
+    - "Confirm Delete" (danger button with trash icon)
+    - "Cancel" (secondary button)
+  - Button states: Disabled during deletion with inline spinner
+  - "Product not found" warning for null products
+
+### State Management:
+- `Id` parameter - Captures product ID from route
+- `product` - Holds the loaded product data
+- `isLoading` - Controls loading spinner visibility during initial load
+- `isDeleting` - Controls button states and deletion spinner
+- `errorMessage` - Stores error messages for display
+
+### Methods:
+- `OnInitializedAsync()` - Blazor lifecycle method that loads product on page initialization
+- `LoadProductAsync()` - Fetches product by ID from API with error handling
+- `HandleDelete()` - Processes delete confirmation:
+  - Sets `isDeleting` flag to disable buttons and show spinner
+  - Calls `ProductService.DeleteProductAsync()`
+  - Navigates to products list on success
+  - Displays error message and re-enables buttons on failure
+- `HandleCancel()` - Handles cancel action by navigating back to products list
+
+### Error Handling:
+- Catches `HttpRequestException` for server connection issues
+- Catches generic `Exception` for other errors
+- Displays user-friendly error messages
+- Shows "Product not found" when product is null
+- Maintains UI state (re-enables buttons) when deletion fails
+
+### User Experience:
+- Clear warning message about irreversible action
+- Shows product details for confirmation before deletion
+- Visual feedback during deletion (spinner on button)
+- Buttons disabled during deletion to prevent double-clicks
+- Immediate navigation to list page on successful deletion
+
+**Build Status:** ✅ Build succeeded in 64.6s (ClientApp succeeded in 3.4s)
+
+---
+
+**Next Step:** Would you like me to proceed with **Phase 3.5 (Create New Product Page)**?
+
+Made changes.
+
+dotnetmurf: Follow instructions in [client.prompt.md](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/.github/client.prompt.md).
+proceed with Phase 3.5 (Create New Product Page)
+
+GitHub Copilot: I'll create the Create Product Page (3.5) according to the plan. 
+
+Created [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/CreateProduct.razor)
+
+The lint errors are expected and will resolve during build. Let me verify the build to confirm step 3.5 is complete: 
+
+Ran terminal command: dotnet build
+
+Perfect! ✅ **Phase 3.5 is complete and builds successfully!**
+
+## Phase 3.5 Summary
+
+I've created the **CreateProduct.razor** page with all required functionality:
+
+### Key Features:
+- **Route:** `/product/create` - Create new product page
+- **Dependency Injection:** Uses `ProductService` for API calls and `NavigationManager` for routing
+- **UI Components:**
+  - Page title: "Create Product - InventoryHub"
+  - Page header: "Create New Product"
+  - Error message display (alert-danger)
+  - Card layout containing the ProductForm component
+  - ProductForm configured with `IsEditMode="false"` (shows "Create Product" button)
+
+### State Management:
+- `newProduct` - Empty Product object initialized for new product creation
+- `errorMessage` - Stores error messages for display
+
+### Methods:
+- `HandleCreate(Product product)` - Processes form submission:
+  - Creates `CreateProductRequest` DTO from form data
+  - Calls `ProductService.CreateProductAsync()`
+  - Navigates to product details page (with new product ID) on success
+  - Falls back to products list if createdProduct is null
+  - Displays error message on failure
+- `HandleCancel()` - Handles cancel action by navigating back to products list
+
+### Error Handling:
+- Catches `HttpRequestException` for server connection issues
+- Catches generic `Exception` for other errors
+- Displays user-friendly error messages
+- Prevents navigation on error, allowing user to correct issues
+
+### User Experience:
+- Clean, simple form for creating new products
+- Uses the reusable `ProductForm` component from Phase 2
+- Form displays "Create Product" button (due to `IsEditMode="false"`)
+- On success, navigates to the newly created product's detail page
+- On cancel, returns to products list
+- Clear error messaging if creation fails
+
+**Build Status:** ✅ Build succeeded in 4.3s
+
+---
+
+## 🎉 Phase 3 Complete!
+
+All 5 CRUD pages have been successfully created:
+- ✅ 3.1 - Products.razor (list page)
+- ✅ 3.2 - ProductDetails.razor (details page)
+- ✅ 3.3 - EditProduct.razor (edit page)
+- ✅ 3.4 - DeleteProduct.razor (delete page)
+- ✅ 3.5 - CreateProduct.razor (create page)
+
+**Next Step:** Would you like me to proceed with **Phase 4 (Navigation Updates)** to add the Products link to the NavMenu?
+
+Made changes.

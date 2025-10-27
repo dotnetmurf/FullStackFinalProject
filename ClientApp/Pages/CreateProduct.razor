@@ -1,0 +1,71 @@
+@page "/product/create"
+@using ClientApp.Models
+@using ClientApp.Services
+@inject ProductService ProductService
+@inject NavigationManager Navigation
+
+<PageTitle>Create Product - InventoryHub</PageTitle>
+
+<div class="container mt-4">
+    <h2>Create New Product</h2>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    <div class="card">
+        <div class="card-body">
+            <ProductForm Product="@newProduct" 
+                        OnSubmit="HandleCreate" 
+                        OnCancel="HandleCancel"
+                        IsEditMode="false" />
+        </div>
+    </div>
+</div>
+
+@code {
+    private Product newProduct = new();
+    private string errorMessage = string.Empty;
+
+    private async Task HandleCreate(Product product)
+    {
+        try
+        {
+            errorMessage = string.Empty;
+            
+            var request = new CreateProductRequest
+            {
+                Name = product.Name,
+                Description = product.Description,
+                Price = product.Price,
+                Stock = product.Stock,
+                Category = product.Category
+            };
+
+            var createdProduct = await ProductService.CreateProductAsync(request);
+            
+            if (createdProduct != null)
+            {
+                Navigation.NavigateTo($"/product/{createdProduct.Id}");
+            }
+            else
+            {
+                Navigation.NavigateTo("/products");
+            }
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "Unable to create product. Please ensure the server is running.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred while creating the product: {ex.Message}";
+        }
+    }
+
+    private void HandleCancel()
+    {
+        Navigation.NavigateTo("/products");
+    }
+}
