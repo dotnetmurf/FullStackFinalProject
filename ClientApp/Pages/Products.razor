@@ -1,0 +1,100 @@
+@page "/products"
+@using ClientApp.Models
+@using ClientApp.Services
+@inject ProductService ProductService
+@inject NavigationManager Navigation
+
+<PageTitle>Products - InventoryHub</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Products</h1>
+        <button class="btn btn-success" @onclick="NavigateToCreate">
+            <i class="oi oi-plus"></i> Add New Product
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = string.Empty"></button>
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (products != null && products.Items.Any())
+    {
+        <div class="row">
+            @foreach (var product in products.Items)
+            {
+                <div class="col-md-6 col-lg-4">
+                    <ProductCard Product="@product" OnDetailsClicked="NavigateToDetails" />
+                </div>
+            }
+        </div>
+
+        <div class="mt-4">
+            <p class="text-muted">
+                Showing page @products.PageNumber of @products.TotalPages 
+                (@products.TotalCount total products)
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info">
+            No products found. Click "Add New Product" to create one.
+        </div>
+    }
+</div>
+
+@code {
+    private PaginatedList<Product>? products;
+    private bool isLoading = true;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProductsAsync();
+    }
+
+    private async Task LoadProductsAsync()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = string.Empty;
+            products = await ProductService.GetProductsAsync(pageNumber: 1, pageSize: 20);
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "Unable to connect to the server. Please ensure the server is running.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred while loading products: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void NavigateToDetails(int productId)
+    {
+        Navigation.NavigateTo($"/product/{productId}");
+    }
+
+    private void NavigateToCreate()
+    {
+        Navigation.NavigateTo("/product/create");
+    }
+}

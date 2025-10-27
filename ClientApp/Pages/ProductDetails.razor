@@ -1,0 +1,123 @@
+@page "/product/{id:int}"
+@using ClientApp.Models
+@using ClientApp.Services
+@inject ProductService ProductService
+@inject NavigationManager Navigation
+
+<PageTitle>Product Details - InventoryHub</PageTitle>
+
+<div class="container mt-4">
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (product != null)
+    {
+        <div class="card">
+            <div class="card-header">
+                <h2>@product.Name</h2>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-3">Description:</dt>
+                    <dd class="col-sm-9">@product.Description</dd>
+
+                    <dt class="col-sm-3">Price:</dt>
+                    <dd class="col-sm-9 text-success">$@product.Price.ToString("F2")</dd>
+
+                    <dt class="col-sm-3">Stock:</dt>
+                    <dd class="col-sm-9">@product.Stock units</dd>
+
+                    <dt class="col-sm-3">Category:</dt>
+                    <dd class="col-sm-9">
+                        <span class="badge bg-secondary">@product.Category.Name</span>
+                    </dd>
+
+                    <dt class="col-sm-3">Category ID:</dt>
+                    <dd class="col-sm-9">@product.CategoryId</dd>
+
+                    <dt class="col-sm-3">Created:</dt>
+                    <dd class="col-sm-9">@product.CreatedAt.ToLocalTime().ToString("f")</dd>
+                </dl>
+
+                <div class="mt-4">
+                    <button class="btn btn-primary me-2" @onclick="NavigateToEdit">
+                        <i class="oi oi-pencil"></i> Edit
+                    </button>
+                    <button class="btn btn-danger me-2" @onclick="NavigateToDelete">
+                        <i class="oi oi-trash"></i> Delete
+                    </button>
+                    <button class="btn btn-secondary" @onclick="NavigateToList">
+                        <i class="oi oi-arrow-left"></i> Back to List
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-warning">
+            Product not found.
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Product? product;
+    private bool isLoading = true;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProductAsync();
+    }
+
+    private async Task LoadProductAsync()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = string.Empty;
+            product = await ProductService.GetProductByIdAsync(Id);
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "Unable to connect to the server. Please ensure the server is running.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred while loading the product: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void NavigateToEdit()
+    {
+        Navigation.NavigateTo($"/product/edit/{Id}");
+    }
+
+    private void NavigateToDelete()
+    {
+        Navigation.NavigateTo($"/product/delete/{Id}");
+    }
+
+    private void NavigateToList()
+    {
+        Navigation.NavigateTo("/products");
+    }
+}
