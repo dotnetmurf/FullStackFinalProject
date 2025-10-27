@@ -1,3 +1,6 @@
 
 ProductDetails page shows Category ID: 0.
 
+
+
+Client needs button to call ServerApp/SeedingService (Refresh Sample Data)
