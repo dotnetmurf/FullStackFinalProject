@@ -4,3 +4,7 @@ ProductDetails page shows Category ID: 0.
 
 
 Client needs button to call ServerApp/SeedingService (Refresh Sample Data)
+
+ProductList does not show Edit changes, ProductDetails does show Edit changes.
+
+
