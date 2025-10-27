@@ -9,4 +9,8 @@ ProductList does not show Edit changes, ProductDetails does show Edit changes.
 
 ProductList does not show Delete changes, ProductDetails shows error messages.
 
+Check Product for Description field.
+
+
+
 
