@@ -25,17 +25,12 @@ InventoryHub is a full-stack product inventory management application built with
 ## Key Development Workflows
 
 ### Running the Application
-Two methods available:
 
-1. Running components separately (preferred for development):
+Running components separately (preferred for development):
 ```powershell
 dotnet run --project ServerApp  # Terminal 1
 dotnet run --project ClientApp  # Terminal 2
 ```
-
-2. Running both simultaneously (using provided task):
-- Use VS Code command palette to run task "Run Both Server and Client"
-- Or use provided task in tasks.json
 
 ### Data Flow Patterns
 - Client-server communication uses HTTP client with base address configuration
