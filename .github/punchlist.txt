@@ -1,0 +1,3 @@
+
+ProductDetails page shows Category ID: 0.
+
