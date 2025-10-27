@@ -7,4 +7,6 @@ Client needs button to call ServerApp/SeedingService (Refresh Sample Data)
 
 ProductList does not show Edit changes, ProductDetails does show Edit changes.
 
+ProductList does not show Delete changes, ProductDetails shows error messages.
+
 

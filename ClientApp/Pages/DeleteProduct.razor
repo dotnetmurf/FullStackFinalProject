@@ -1,0 +1,133 @@
+@page "/product/delete/{id:int}"
+@using ClientApp.Models
+@using ClientApp.Services
+@inject ProductService ProductService
+@inject NavigationManager Navigation
+
+<PageTitle>Delete Product - InventoryHub</PageTitle>
+
+<div class="container mt-4">
+    <div class="alert alert-warning">
+        <h2><i class="oi oi-warning"></i> Delete Product</h2>
+        <p>Are you sure you want to delete this product? This action cannot be undone.</p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (product != null)
+    {
+        <div class="card">
+            <div class="card-header">
+                <h3>@product.Name</h3>
+            </div>
+            <div class="card-body">
+                <dl class="row">
+                    <dt class="col-sm-3">Description:</dt>
+                    <dd class="col-sm-9">@product.Description</dd>
+
+                    <dt class="col-sm-3">Price:</dt>
+                    <dd class="col-sm-9">$@product.Price.ToString("F2")</dd>
+
+                    <dt class="col-sm-3">Stock:</dt>
+                    <dd class="col-sm-9">@product.Stock</dd>
+
+                    <dt class="col-sm-3">Category:</dt>
+                    <dd class="col-sm-9">@product.Category.Name</dd>
+                </dl>
+
+                <div class="mt-4">
+                    <button class="btn btn-danger me-2" @onclick="HandleDelete" disabled="@isDeleting">
+                        @if (isDeleting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="oi oi-trash"></i> Confirm Delete
+                    </button>
+                    <button class="btn btn-secondary" @onclick="HandleCancel" disabled="@isDeleting">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-warning">
+            Product not found.
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Product? product;
+    private bool isLoading = true;
+    private bool isDeleting = false;
+    private string errorMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProductAsync();
+    }
+
+    private async Task LoadProductAsync()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = string.Empty;
+            product = await ProductService.GetProductByIdAsync(Id);
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "Unable to connect to the server. Please ensure the server is running.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred while loading the product: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleDelete()
+    {
+        try
+        {
+            isDeleting = true;
+            errorMessage = string.Empty;
+            await ProductService.DeleteProductAsync(Id);
+            Navigation.NavigateTo("/products");
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "Unable to delete product. Please ensure the server is running.";
+            isDeleting = false;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred while deleting the product: {ex.Message}";
+            isDeleting = false;
+        }
+    }
+
+    private void HandleCancel()
+    {
+        Navigation.NavigateTo("/products");
+    }
+}
