@@ -1,11 +1,22 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using ClientApp;
+using ClientApp.Services;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+// Add logging (required for ILogger<T> in services)
+builder.Logging.SetMinimumLevel(LogLevel.Information);
+
+// Configure HttpClient to point to ServerApp
+builder.Services.AddScoped(sp => new HttpClient 
+{ 
+    BaseAddress = new Uri("http://localhost:5132") 
+});
+
+// Register ProductService (will be added in Phase 1)
+builder.Services.AddScoped<ProductService>();
 
 await builder.Build().RunAsync();
