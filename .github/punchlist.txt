@@ -11,6 +11,8 @@ ProductList does not show Delete changes, ProductDetails shows error messages.
 
 Check Product for Description field.
 
+Create About page.
+
 
 
 
