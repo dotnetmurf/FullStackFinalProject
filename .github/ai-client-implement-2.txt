@@ -89,3 +89,83 @@ I've successfully added comprehensive pagination controls to the Products.razor 
 The implementation follows Bootstrap styling conventions and maintains accessibility with proper ARIA labels. The code is well-documented with XML comments following .NET best practices.
 
 Made changes.
+
+dotnetmurf: After deleting a product record, the Products page still shows the record in the list. When the View Details button is clicked, both the Unable to connect to the server. Please ensure the server is running. and the 
+Product not found. messages are displayed in the ProductDetails page. Please fix this so that the Products page updates correctly after a product record is deleted.
+
+GitHub Copilot: I'll investigate this issue. It seems the Products page isn't refreshing after a delete operation, and there's also an error handling issue in ProductDetails. Let me check the relevant files. 
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/Products.razor#1-1), lines 1 to 150
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/ProductDetails.razor)
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Services/ProductService.cs)
+
+Now let me see the rest of the Products.razor file: 
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/Products.razor#151-151), lines 151 to 234
+
+Now I understand the issues:
+
+1. **Products page not refreshing after delete**: The DeleteProduct page navigates back to `/products` after deletion, but the Products page doesn't reload its data when navigating back to it. We need to add `OnParametersSetAsync` to handle navigation events.
+
+2. **ProductDetails showing both error messages**: When a product is not found (404), the code is catching it as an `HttpRequestException` first, then the product remains null, showing both messages. We need to handle the 404 status code separately.
+
+Let me fix these issues: 
+
+Using "Replace String in File"
+
+
+```
+
+```
+
+
+Using "Replace String in File"
+
+
+```
+
+```
+
+
+Using "Replace String in File"
+
+
+```
+
+```
+Now let me also update the DeleteProduct.razor page to handle 404s gracefully: 
+
+Using "Replace String in File"
+
+
+```
+
+```
+Perfect! I've fixed both issues:
+
+## Issues Fixed
+
+### 1. **Products Page Not Refreshing After Delete**
+- **Problem**: When navigating back to `/products` after deleting a product, the page wasn't reloading the data, so the deleted product still appeared in the list.
+- **Solution**: Added `OnParametersSetAsync()` lifecycle method to the Products.razor page. This ensures that the product list is refreshed whenever the page is navigated to, including when returning from the delete page.
+
+### 2. **ProductDetails Showing Both Error Messages**
+- **Problem**: When a product didn't exist (404), both the "Unable to connect to the server" and "Product not found" messages were displayed.
+- **Solution**: Modified `ProductService.GetProductByIdAsync()` to explicitly handle 404 status codes by returning `null` without throwing an exception. This way:
+  - A 404 (product not found) → returns `null` → displays only "Product not found"
+  - A connection error → throws `HttpRequestException` → displays only "Unable to connect to the server"
+  - Other errors → displays the specific error message
+
+The changes were also applied to DeleteProduct.razor for consistency.
+
+Now when you delete a product:
+1. The deletion completes successfully
+2. You're redirected to the Products page
+3. The Products page automatically reloads the data
+4. The deleted product is no longer shown in the list
+5. If you try to view a deleted product's details, you'll see only the "Product not found" message (not both error messages)
+
+Made changes.
+

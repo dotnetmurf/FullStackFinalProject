@@ -219,6 +219,22 @@ app.MapGet("/api/product/{id}", async (int id, HttpContext context, IMemoryCache
     }
 });
 
+// Helper method to invalidate all paginated product caches
+void InvalidateProductCaches(IMemoryCache cache, ILogger<Program> logger)
+{
+    // Note: IMemoryCache doesn't provide a way to enumerate keys
+    // We invalidate common pagination combinations
+    for (int page = 1; page <= 10; page++)
+    {
+        foreach (int size in new[] { 10, 20, 30, 40, 50 })
+        {
+            var key = $"products_page{page}_size{size}";
+            cache.Remove(key);
+        }
+    }
+    logger.LogDebug("Invalidated paginated product caches");
+}
+
 // POST /api/product - Creates a new product
 // - Validates input data
 // - Updates cache to reflect new product
@@ -253,8 +269,8 @@ app.MapPost("/api/product", async (CreateProductRequest request, HttpContext con
         await dbContext.Products.AddAsync(newProduct);
         await dbContext.SaveChangesAsync();
         
-        // Invalidate relevant caches
-        cache.Remove("products");
+        // Invalidate all paginated product caches
+        InvalidateProductCaches(cache, logger);
         
         sw.Stop();
         logger.LogInformation("POST /api/product created product {Id} in {ElapsedMs} ms", newId, sw.ElapsedMilliseconds);
@@ -303,7 +319,7 @@ app.MapPut("/api/product/{id}", async (int id, UpdateProductRequest request, Htt
         await dbContext.SaveChangesAsync();
         
         // Invalidate relevant caches
-        cache.Remove("products");
+        InvalidateProductCaches(cache, logger);
         cache.Remove($"product_{id}");
         
         sw.Stop();
@@ -342,7 +358,7 @@ app.MapDelete("/api/product/{id}", async (int id, HttpContext context, IMemoryCa
         await dbContext.SaveChangesAsync();
         
         // Invalidate relevant caches
-        cache.Remove("products");
+        InvalidateProductCaches(cache, logger);
         cache.Remove($"product_{id}");
         
         sw.Stop();

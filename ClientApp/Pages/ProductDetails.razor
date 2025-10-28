@@ -91,6 +91,9 @@
             isLoading = true;
             errorMessage = string.Empty;
             product = await ProductService.GetProductByIdAsync(Id);
+            
+            // If product is null, it means it was not found (404)
+            // Don't set an error message - let the UI show "Product not found"
         }
         catch (HttpRequestException)
         {

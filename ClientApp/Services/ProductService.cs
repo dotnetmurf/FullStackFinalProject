@@ -54,12 +54,23 @@ public class ProductService
     /// </summary>
     /// <param name="id">Product ID</param>
     /// <returns>Product if found, null otherwise</returns>
-    /// <exception cref="HttpRequestException">Thrown when API request fails</exception>
+    /// <exception cref="HttpRequestException">Thrown when API request fails (except 404)</exception>
     public async Task<Product?> GetProductByIdAsync(int id)
     {
         try
         {
-            return await _httpClient.GetFromJsonAsync<Product>($"/api/product/{id}");
+            var response = await _httpClient.GetAsync($"/api/product/{id}");
+            
+            // Return null for 404 (product not found) without throwing
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                return null;
+            }
+            
+            // Throw for other error status codes
+            response.EnsureSuccessStatusCode();
+            
+            return await response.Content.ReadFromJsonAsync<Product>();
         }
         catch (HttpRequestException ex)
         {

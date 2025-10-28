@@ -127,6 +127,14 @@
     }
 
     /// <summary>
+    /// Called when navigating to this page - ensures fresh data is loaded
+    /// </summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadProductsAsync();
+    }
+
+    /// <summary>
     /// Loads products from the server with current pagination settings
     /// </summary>
     private async Task LoadProductsAsync()
