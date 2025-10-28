@@ -90,7 +90,8 @@
             };
 
             await ProductService.UpdateProductAsync(Id, request);
-            Navigation.NavigateTo("/products");
+            // Add timestamp to force component reload
+            Navigation.NavigateTo($"/products?refresh={DateTime.Now.Ticks}");
         }
         catch (HttpRequestException)
         {

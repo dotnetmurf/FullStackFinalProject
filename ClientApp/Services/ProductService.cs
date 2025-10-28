@@ -140,4 +140,23 @@ public class ProductService
             throw;
         }
     }
+
+    /// <summary>
+    /// Retrieves all available categories from the API
+    /// </summary>
+    /// <returns>Array of available categories</returns>
+    /// <exception cref="HttpRequestException">Thrown when API request fails</exception>
+    public async Task<Category[]> GetCategoriesAsync()
+    {
+        try
+        {
+            var response = await _httpClient.GetFromJsonAsync<Category[]>("/api/categories");
+            return response ?? Array.Empty<Category>();
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Error fetching categories from API");
+            throw;
+        }
+    }
 }

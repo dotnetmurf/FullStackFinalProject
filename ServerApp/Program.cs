@@ -170,6 +170,32 @@ app.MapGet("/api/products", async (
     }
 });
 
+// GET /api/categories - Retrieves all available categories
+// - Returns distinct categories from seed data
+// - Useful for dropdown selectors in forms
+app.MapGet("/api/categories", (ILogger<Program> logger) =>
+{
+    var sw = Stopwatch.StartNew();
+    
+    try
+    {
+        var categories = SeedingService.GetCategories();
+        sw.Stop();
+        logger.LogInformation("GET /api/categories responded in {ElapsedMs} ms with {Count} categories", 
+            sw.ElapsedMilliseconds, categories.Length);
+        return Results.Ok(categories);
+    }
+    catch (Exception ex)
+    {
+        sw.Stop();
+        logger.LogError(ex, "GET /api/categories failed after {ElapsedMs} ms", sw.ElapsedMilliseconds);
+        throw;
+    }
+})
+.WithName("GetCategories")
+.WithTags("Categories")
+.Produces<Category[]>(StatusCodes.Status200OK);
+
 // GET /api/product/{id} - Retrieves a specific product by ID
 // - Uses individual product caching (5-minute expiration)
 // - Implements performance monitoring
@@ -223,16 +249,16 @@ app.MapGet("/api/product/{id}", async (int id, HttpContext context, IMemoryCache
 void InvalidateProductCaches(IMemoryCache cache, ILogger<Program> logger)
 {
     // Note: IMemoryCache doesn't provide a way to enumerate keys
-    // We invalidate common pagination combinations
+    // We invalidate caches for all page sizes used in the application: 12, 24, 36, 48, 60
     for (int page = 1; page <= 10; page++)
     {
-        foreach (int size in new[] { 10, 20, 30, 40, 50 })
+        foreach (int size in new[] { 12, 24, 36, 48, 60 })
         {
             var key = $"products_page{page}_size{size}";
             cache.Remove(key);
         }
     }
-    logger.LogDebug("Invalidated paginated product caches");
+    logger.LogDebug("Invalidated paginated product caches for page sizes: 12, 24, 36, 48, 60");
 }
 
 // POST /api/product - Creates a new product
@@ -265,6 +291,7 @@ app.MapPost("/api/product", async (CreateProductRequest request, HttpContext con
             Price = request.Price,
             Stock = request.Stock,
             Category = request.Category,
+            CategoryId = request.Category.Id, // Sync CategoryId with Category.Id
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -319,6 +346,7 @@ app.MapPut("/api/product/{id}", async (int id, UpdateProductRequest request, Htt
         existingProduct.Price = request.Price;
         existingProduct.Stock = request.Stock;
         existingProduct.Category = request.Category;
+        existingProduct.CategoryId = request.Category.Id; // Sync CategoryId with Category.Id
         existingProduct.UpdatedAt = DateTime.UtcNow;
         
         await dbContext.SaveChangesAsync();

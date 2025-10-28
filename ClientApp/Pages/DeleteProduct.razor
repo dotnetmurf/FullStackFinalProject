@@ -115,7 +115,7 @@
             isDeleting = true;
             errorMessage = string.Empty;
             await ProductService.DeleteProductAsync(Id);
-            Navigation.NavigateTo("/products");
+            Navigation.NavigateTo($"/products?refresh={DateTime.Now.Ticks}");
         }
         catch (HttpRequestException)
         {
@@ -131,6 +131,6 @@
 
     private void HandleCancel()
     {
-        Navigation.NavigateTo("/products");
+        Navigation.NavigateTo($"/products?refresh={DateTime.Now.Ticks}");
     }
 }

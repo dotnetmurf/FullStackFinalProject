@@ -48,6 +48,11 @@ public class Product
     public Category Category { get; set; } = new();
 
     /// <summary>
+    /// Foreign key reference to the category
+    /// </summary>
+    public int CategoryId { get; set; }
+
+    /// <summary>
     /// The timestamp when the product was created
     /// </summary>
     [JsonPropertyName("createdAt")]

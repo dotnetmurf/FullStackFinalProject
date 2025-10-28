@@ -11,6 +11,9 @@
     - IsEditMode: Boolean indicating if form is in edit mode (affects button text)
 *@
 
+@using ClientApp.Services
+@inject ProductService ProductService
+
 <EditForm Model="@CurrentProduct" OnValidSubmit="HandleSubmit">
     <DataAnnotationsValidator />
     <ValidationSummary class="alert alert-danger" />
@@ -42,15 +45,25 @@
     </div>
 
     <div class="row">
-        <div class="col-md-6 mb-3">
-            <label for="categoryName" class="form-label">Category Name</label>
-            <InputText id="categoryName" class="form-control" @bind-Value="CurrentProduct.Category.Name" />
-            <ValidationMessage For="@(() => CurrentProduct.Category.Name)" />
-        </div>
-
-        <div class="col-md-6 mb-3">
-            <label for="categoryId" class="form-label">Category ID</label>
-            <InputNumber id="categoryId" class="form-control" @bind-Value="CurrentProduct.CategoryId" />
+        <div class="col-md-12 mb-3">
+            <label for="category" class="form-label">Category</label>
+            @if (availableCategories == null || availableCategories.Length == 0)
+            {
+                <div class="text-muted">
+                    <em>Loading categories...</em>
+                </div>
+            }
+            else
+            {
+                <InputSelect id="category" class="form-select" @bind-Value="SelectedCategoryId">
+                    <option value="0">-- Select a Category --</option>
+                    @foreach (var category in availableCategories)
+                    {
+                        <option value="@category.Id">@category.Name (ID: @category.Id)</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="@(() => CurrentProduct.CategoryId)" />
+            }
         </div>
     </div>
 
@@ -97,6 +110,52 @@
     /// until the user submits the form
     /// </remarks>
     private Product CurrentProduct { get; set; } = new();
+
+    /// <summary>
+    /// List of available categories fetched from the API
+    /// </summary>
+    private Category[]? availableCategories;
+
+    /// <summary>
+    /// Selected category ID bound to the dropdown
+    /// </summary>
+    /// <remarks>
+    /// When changed, updates both CategoryId and Category properties
+    /// </remarks>
+    private int SelectedCategoryId
+    {
+        get => CurrentProduct.CategoryId;
+        set
+        {
+            CurrentProduct.CategoryId = value;
+            var selectedCategory = availableCategories?.FirstOrDefault(c => c.Id == value);
+            if (selectedCategory != null)
+            {
+                CurrentProduct.Category.Id = selectedCategory.Id;
+                CurrentProduct.Category.Name = selectedCategory.Name;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Lifecycle method called when component is initialized
+    /// </summary>
+    /// <remarks>
+    /// Loads available categories from the API
+    /// </remarks>
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            availableCategories = await ProductService.GetCategoriesAsync();
+        }
+        catch (Exception ex)
+        {
+            // Log error but don't prevent form from loading
+            Console.WriteLine($"Error loading categories: {ex.Message}");
+            availableCategories = Array.Empty<Category>();
+        }
+    }
 
     /// <summary>
     /// Lifecycle method called when parameters are set or changed

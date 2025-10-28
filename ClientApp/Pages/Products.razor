@@ -55,11 +55,11 @@
                         <label for="pageSize" class="form-label mb-0">Items per page:</label>
                         <select id="pageSize" class="form-select" style="width: auto;" 
                                 value="@currentPageSize" @onchange="OnPageSizeChanged">
-                            <option value="10">10</option>
-                            <option value="20">20</option>
-                            <option value="30">30</option>
-                            <option value="40">40</option>
-                            <option value="50">50</option>
+                            <option value="12">12</option>
+                            <option value="24">24</option>
+                            <option value="36">36</option>
+                            <option value="48">48</option>
+                            <option value="60">60</option>
                         </select>
                     </div>
                 </div>
@@ -119,17 +119,9 @@
     private bool isLoading = true;
     private string errorMessage = string.Empty;
     private int currentPageNumber = 1;
-    private int currentPageSize = 10;
+    private int currentPageSize = 12;
 
     protected override async Task OnInitializedAsync()
-    {
-        await LoadProductsAsync();
-    }
-
-    /// <summary>
-    /// Called when navigating to this page - ensures fresh data is loaded
-    /// </summary>
-    protected override async Task OnParametersSetAsync()
     {
         await LoadProductsAsync();
     }
