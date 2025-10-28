@@ -19,4 +19,7 @@ builder.Services.AddScoped(sp => new HttpClient
 // Register ProductService (will be added in Phase 1)
 builder.Services.AddScoped<ProductService>();
 
+// Register ProductsStateService as Singleton to maintain state across navigation
+builder.Services.AddSingleton<ProductsStateService>();
+
 await builder.Build().RunAsync();

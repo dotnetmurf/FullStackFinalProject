@@ -806,3 +806,135 @@ The sorting is applied **before** pagination, so all pages will be correctly sor
 **Restart the server** to see the products sorted by name on the Products page!
 
 Made changes.
+
+dotnetmurf: Can you create a state management for the Products pages? When navigating away fro the Products page, the page size always reverts back to the default size of 12. I would like to maintain the last user-selected page size during navigation. Can this be done?
+
+GitHub Copilot: Yes! This is a perfect use case for state management in Blazor. I'll implement a simple state service that persists the user's page size selection across navigation. Let me create a solution:
+
+## Step 1: Create a ProductsStateService 
+
+Created [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Services/ProductsStateService.cs)
+
+## Step 2: Register the service in Program.cs 
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Program.cs)
+
+Using "Replace String in File"
+
+
+```
+
+```
+## Step 3: Update Products.razor to use the state service 
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/Products.razor#1-1), lines 1 to 10
+
+Using "Replace String in File"
+
+
+```
+
+```
+Now let me update the @code section to use the state service: 
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/Products.razor#120-120), lines 120 to 150
+
+Summarized conversation history
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/Products.razor#150-150), lines 150 to 200
+
+Now I'll update the @code section to use the state service: 
+
+Using "Replace String in File"
+
+
+```
+
+```
+Now I need to update the remaining references to use StateService: 
+
+Using "Replace String in File"
+
+
+```
+
+```
+
+
+Using "Replace String in File"
+
+
+```
+
+```
+Now I need to update the HTML markup to use StateService: 
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/Products.razor#50-50), lines 50 to 100
+
+Using "Replace String in File"
+
+
+```
+
+```
+Perfect! Now let's test the implementation. First, let me check if the servers are running: 
+
+Ran terminal command: netstat -an | findstr "5132 5019"
+
+The servers aren't running. Let me start them: 
+
+Ran terminal command: dotnet run --project ServerApp
+
+Checked background terminal output
+
+Great! The server is running. Now let's start the client: 
+
+Ran terminal command: dotnet run --project ClientApp
+
+Checked background terminal output
+
+Perfect! Both applications are running successfully. Let me open the application in a browser: 
+
+Opened Simple Browser at http://localhost:5019/products
+
+Excellent! I've successfully implemented state management for the Products page. Here's what was done:
+
+## ✅ State Management Implementation Complete
+
+### Changes Made:
+
+1. **Created `ProductsStateService.cs`** - A singleton service that maintains:
+   - `PageSize` property (default: 12)
+   - `PageNumber` property (default: 1)
+   - `SetPageSize(int)` and `SetPageNumber(int)` methods
+   - `OnChange` event for future state synchronization needs
+
+2. **Registered the service** in Program.cs as a Singleton (ensures state persists across navigation)
+
+3. **Updated Products.razor** to use state service:
+   - Removed local `currentPageSize` and `currentPageNumber` variables
+   - Changed all references to use `StateService.PageSize` and `StateService.PageNumber`
+   - Updated `LoadProductsAsync()` to read from StateService
+   - Updated `OnPageSizeChanged()` to call `StateService.SetPageSize()`
+   - Updated `ChangePage()` to call `StateService.SetPageNumber()`
+   - Updated pagination controls in HTML to display StateService values
+
+### How It Works:
+
+- When you select a page size (e.g., 24), it's stored in the singleton service
+- When you navigate to Edit/Create/Delete and then return to Products, the state service still has your page size of 24
+- The page will load with your last selected page size instead of always resetting to 12
+- Page numbers are also maintained (useful if you're on page 3 of 24 items)
+
+### Testing Steps:
+
+1. ✅ Applications are running (Server on 5132, Client on 5019)
+2. 🌐 Products page opened in browser
+3. **Try these tests:**
+   - Change page size to 24 → Navigate to a product details → Click back → Should still show 24 items
+   - Go to page 2 with 24 items → Edit a product → Return → Should be on page 2 with 24 items
+   - Change to 48 items → Create a new product → Return → Should maintain 48 items per page
+
+The state now persists across all navigation within the application! 🎉
+
+Made changes.
