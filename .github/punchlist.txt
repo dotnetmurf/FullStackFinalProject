@@ -1,13 +1,10 @@
 
 ProductDetails page shows Category ID: 0.
 
-
+Products Page need to manage state for records per page selection when View/Edit/Delete actions occur.
 
 Client needs button to call ServerApp/SeedingService (Refresh Sample Data)
 
-ProductList does not show Edit changes, ProductDetails does show Edit changes.
-
-ProductList does not show Delete changes, ProductDetails shows error messages.
 
 Check Product for Description field.
 

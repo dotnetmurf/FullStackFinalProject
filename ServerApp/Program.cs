@@ -261,9 +261,12 @@ app.MapPost("/api/product", async (CreateProductRequest request, HttpContext con
         {
             Id = newId,
             Name = request.Name,
+            Description = request.Description,
             Price = request.Price,
             Stock = request.Stock,
-            Category = request.Category
+            Category = request.Category,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
         
         await dbContext.Products.AddAsync(newProduct);
@@ -312,9 +315,11 @@ app.MapPut("/api/product/{id}", async (int id, UpdateProductRequest request, Htt
         }
         
         existingProduct.Name = request.Name;
+        existingProduct.Description = request.Description;
         existingProduct.Price = request.Price;
         existingProduct.Stock = request.Stock;
         existingProduct.Category = request.Category;
+        existingProduct.UpdatedAt = DateTime.UtcNow;
         
         await dbContext.SaveChangesAsync();
         
