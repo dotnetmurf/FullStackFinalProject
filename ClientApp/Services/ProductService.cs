@@ -159,4 +159,24 @@ public class ProductService
             throw;
         }
     }
+
+    /// <summary>
+    /// Refreshes the database with fresh sample data
+    /// </summary>
+    /// <returns>True if refresh was successful, false otherwise</returns>
+    /// <exception cref="HttpRequestException">Thrown when API request fails</exception>
+    public async Task<bool> RefreshSampleDataAsync()
+    {
+        try
+        {
+            var response = await _httpClient.PostAsync("/api/products/refresh", null);
+            response.EnsureSuccessStatusCode();
+            return true;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Error refreshing sample data");
+            throw;
+        }
+    }
 }

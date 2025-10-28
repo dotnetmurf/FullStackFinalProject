@@ -9,7 +9,21 @@
 
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Products</h1>
+        <div class="d-flex align-items-center gap-3">
+            <h1 class="mb-0">Products</h1>
+            <button class="btn btn-primary" @onclick="RefreshSampleData" disabled="@isRefreshing">
+                @if (isRefreshing)
+                {
+                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                    <span>Refreshing...</span>
+                }
+                else
+                {
+                    <i class="oi oi-reload"></i>
+                    <span>Refresh Sample Data</span>
+                }
+            </button>
+        </div>
         <button class="btn btn-success" @onclick="NavigateToCreate">
             <i class="oi oi-plus"></i> Add New Product
         </button>
@@ -118,6 +132,7 @@
 @code {
     private PaginatedList<Product>? products;
     private bool isLoading = true;
+    private bool isRefreshing = false;
     private string errorMessage = string.Empty;
 
     protected override async Task OnInitializedAsync()
@@ -218,6 +233,37 @@
         int endPage = Math.Min(products.TotalPages, startPage + maxPagesToShow - 1);
 
         return endPage;
+    }
+
+    /// <summary>
+    /// Refreshes the database with fresh sample data
+    /// </summary>
+    private async Task RefreshSampleData()
+    {
+        try
+        {
+            isRefreshing = true;
+            errorMessage = string.Empty;
+            
+            // Call the API to refresh sample data
+            await ProductService.RefreshSampleDataAsync();
+            
+            // Reset to first page and reload products
+            StateService.SetPageNumber(1);
+            await LoadProductsAsync();
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "Unable to connect to the server. Please ensure the server is running.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred while refreshing sample data: {ex.Message}";
+        }
+        finally
+        {
+            isRefreshing = false;
+        }
     }
 
     private void NavigateToDetails(int productId)

@@ -97,7 +97,7 @@ logger.LogInformation("InventoryHub ServerApp starting up - Performance monitori
 PaginatedList<Product> GetEmptyPaginatedList() => new()
 {
     PageNumber = 1,
-    PageSize = 10,
+    PageSize = 12,
     TotalCount = 0,
     TotalPages = 0,
     Items = Array.Empty<Product>()
@@ -405,6 +405,49 @@ app.MapDelete("/api/product/{id}", async (int id, HttpContext context, IMemoryCa
         sw.Stop();
         logger.LogError(ex, "DELETE /api/product/{Id} failed after {ElapsedMs} ms", id, sw.ElapsedMilliseconds);
         throw;
+    }
+});
+
+// POST /api/products/refresh - Refreshes database with sample data
+// - Clears existing products
+// - Reseeds with fresh sample data
+// - Invalidates all product caches
+app.MapPost("/api/products/refresh", async (HttpContext context, IMemoryCache cache, ILogger<Program> logger) =>
+{
+    var sw = Stopwatch.StartNew();
+    try
+    {
+        var db = context.RequestServices.GetRequiredService<AppDbContext>();
+        
+        // Clear existing products
+        var existingProducts = await db.Products.ToListAsync();
+        db.Products.RemoveRange(existingProducts);
+        await db.SaveChangesAsync();
+        
+        // Get fresh sample data
+        var sampleProducts = SeedingService.GetSampleProducts();
+        
+        // Add new products
+        await db.Products.AddRangeAsync(sampleProducts);
+        await db.SaveChangesAsync();
+        
+        // Invalidate all product caches
+        InvalidateProductCaches(cache, logger);
+        
+        sw.Stop();
+        logger.LogInformation("POST /api/products/refresh completed - Reset {Count} products in {ElapsedMs} ms", 
+            sampleProducts.Length, sw.ElapsedMilliseconds);
+        
+        return Results.Ok(new { 
+            message = "Sample data refreshed successfully", 
+            productCount = sampleProducts.Length 
+        });
+    }
+    catch (Exception ex)
+    {
+        sw.Stop();
+        logger.LogError(ex, "POST /api/products/refresh failed after {ElapsedMs} ms", sw.ElapsedMilliseconds);
+        return Results.Problem("Failed to refresh sample data");
     }
 });
 
