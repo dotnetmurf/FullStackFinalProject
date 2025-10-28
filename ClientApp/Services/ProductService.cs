@@ -32,14 +32,21 @@ public class ProductService
     /// </summary>
     /// <param name="pageNumber">Page number (1-based)</param>
     /// <param name="pageSize">Number of items per page</param>
+    /// <param name="searchTerm">Optional search term to filter products by name</param>
     /// <returns>Paginated list of products</returns>
     /// <exception cref="HttpRequestException">Thrown when API request fails</exception>
-    public async Task<PaginatedList<Product>> GetProductsAsync(int pageNumber = 1, int pageSize = 10)
+    public async Task<PaginatedList<Product>> GetProductsAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null)
     {
         try
         {
-            var response = await _httpClient.GetFromJsonAsync<PaginatedList<Product>>(
-                $"/api/products?pageNumber={pageNumber}&pageSize={pageSize}");
+            var url = $"/api/products?pageNumber={pageNumber}&pageSize={pageSize}";
+            
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+            {
+                url += $"&searchTerm={Uri.EscapeDataString(searchTerm)}";
+            }
+            
+            var response = await _httpClient.GetFromJsonAsync<PaginatedList<Product>>(url);
             return response ?? new PaginatedList<Product>();
         }
         catch (HttpRequestException ex)

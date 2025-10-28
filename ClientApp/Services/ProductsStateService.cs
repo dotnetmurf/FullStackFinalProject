@@ -4,7 +4,7 @@ namespace ClientApp.Services;
 /// Service for managing Products page state across navigation
 /// </summary>
 /// <remarks>
-/// Maintains user preferences like page size and current page number
+/// Maintains user preferences like page size, current page number, and search term
 /// so they persist when navigating away and returning to the Products page
 /// </remarks>
 public class ProductsStateService
@@ -24,6 +24,14 @@ public class ProductsStateService
     /// Default is page 1
     /// </remarks>
     public int PageNumber { get; set; } = 1;
+
+    /// <summary>
+    /// Gets or sets the current search term for filtering products
+    /// </summary>
+    /// <remarks>
+    /// Default is empty string (no search filter)
+    /// </remarks>
+    public string SearchTerm { get; set; } = string.Empty;
 
     /// <summary>
     /// Event that fires when the state changes
@@ -48,6 +56,17 @@ public class ProductsStateService
     public void SetPageNumber(int pageNumber)
     {
         PageNumber = pageNumber;
+        NotifyStateChanged();
+    }
+
+    /// <summary>
+    /// Updates the search term and notifies subscribers
+    /// </summary>
+    /// <param name="searchTerm">New search term</param>
+    public void SetSearchTerm(string searchTerm)
+    {
+        SearchTerm = searchTerm ?? string.Empty;
+        PageNumber = 1; // Reset to page 1 when search changes
         NotifyStateChanged();
     }
 

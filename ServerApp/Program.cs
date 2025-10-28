@@ -106,9 +106,11 @@ PaginatedList<Product> GetEmptyPaginatedList() => new()
 // GET /api/products - Retrieves all products with caching and pagination
 // - Uses memory cache with 5-minute expiration
 // - Implements performance monitoring
+// - Supports optional search by product name
 // Returns paginated list of products with categories
 app.MapGet("/api/products", async (
     [AsParameters] PaginationParams pagination,
+    string? searchTerm,
     HttpContext context,
     IMemoryCache cache,
     ILogger<Program> logger) =>
@@ -116,8 +118,9 @@ app.MapGet("/api/products", async (
     // Apply defaults if not provided
     var pageNumber = Math.Max(1, pagination.PageNumber);
     var pageSize = pagination.PageSize <= 0 ? 10 : pagination.PageSize;
+    var normalizedSearch = searchTerm?.Trim() ?? string.Empty;
     var sw = Stopwatch.StartNew();
-    var cacheKey = $"products_page{pageNumber}_size{pageSize}";
+    var cacheKey = $"products_page{pageNumber}_size{pageSize}_search{normalizedSearch}";
     
     try
     {
@@ -130,11 +133,18 @@ app.MapGet("/api/products", async (
         
         logger.LogInformation("Cache miss - retrieving products from database");
         var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
-        var query = dbContext.Products
-            .OrderBy(p => p.Name)  // Sort by product name ascending
-            .AsQueryable();
+        var query = dbContext.Products.AsQueryable();
 
-        // Get total count for pagination
+        // Apply search filter if provided (case-insensitive)
+        if (!string.IsNullOrWhiteSpace(normalizedSearch))
+        {
+            query = query.Where(p => EF.Functions.Like(p.Name, $"%{normalizedSearch}%"));
+        }
+
+        // Apply sorting
+        query = query.OrderBy(p => p.Name);
+
+        // Get total count for pagination (after filtering)
         var totalCount = await query.CountAsync();
 
         // Apply pagination
@@ -251,16 +261,22 @@ app.MapGet("/api/product/{id}", async (int id, HttpContext context, IMemoryCache
 void InvalidateProductCaches(IMemoryCache cache, ILogger<Program> logger)
 {
     // Note: IMemoryCache doesn't provide a way to enumerate keys
-    // We invalidate caches for all page sizes used in the application: 12, 24, 36, 48, 60
+    // We need to invalidate caches for all combinations of pages, sizes, and search terms
+    // Since search terms are dynamic, we clear common pagination combinations
+    // In production, consider using a distributed cache with key enumeration support
     for (int page = 1; page <= 10; page++)
     {
         foreach (int size in new[] { 12, 24, 36, 48, 60 })
         {
-            var key = $"products_page{page}_size{size}";
+            // Clear cache for non-search queries
+            var key = $"products_page{page}_size{size}_search";
             cache.Remove(key);
+            
+            // Note: Search-specific caches will expire naturally after 5 minutes
+            // For production, consider adding a cache version/generation number
         }
     }
-    logger.LogDebug("Invalidated paginated product caches for page sizes: 12, 24, 36, 48, 60");
+    logger.LogDebug("Invalidated paginated product caches - search caches will expire naturally");
 }
 
 // POST /api/product - Creates a new product
