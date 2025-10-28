@@ -130,7 +130,9 @@ app.MapGet("/api/products", async (
         
         logger.LogInformation("Cache miss - retrieving products from database");
         var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
-        var query = dbContext.Products.AsQueryable();
+        var query = dbContext.Products
+            .OrderBy(p => p.Name)  // Sort by product name ascending
+            .AsQueryable();
 
         // Get total count for pagination
         var totalCount = await query.CountAsync();

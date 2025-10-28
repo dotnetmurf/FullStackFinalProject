@@ -757,3 +757,52 @@ This is more efficient and matches exactly what the Products page dropdown offer
 **Restart the server** to apply the changes, and the category updates should now display correctly on the Products page!
 
 Made changes.
+
+dotnetmurf: Can the Products page display the Products List sorted by Product Name Ascending?
+
+GitHub Copilot: Yes! I'll add sorting to the Products page so it displays products sorted by name in ascending order. Let me update the server-side query first, then optionally add client-side sorting controls. 
+
+Using "Replace String in File"
+
+
+```
+
+```
+Perfect! Now let's build and test: 
+
+Ran terminal command: cd "s:\Microsoft Full-Stack Developer Professional Certificate\07 Full-Stack Integration\Final Project\FullStackFinalProject\FullStackApp\ServerApp" ; dotnet build
+
+Excellent! ✅ 
+
+## Products List Now Sorted by Name (Ascending)
+
+I've updated the server-side query to automatically sort all products by their name in ascending order (A-Z).
+
+### What Changed
+In the `GET /api/products` endpoint, I added:
+```csharp
+var query = dbContext.Products
+    .OrderBy(p => p.Name)  // Sort by product name ascending
+    .AsQueryable();
+```
+
+### Result
+When you restart the server and view the Products page, you'll see products displayed alphabetically:
+- Antivirus Software
+- Cable Organizer
+- Camera Bag
+- Camera Lens
+- Camera Tripod
+- Design Software
+- Development IDE
+- Digital Camera
+- External SSD
+- Gaming Chair
+- Gaming Console
+- etc...
+
+The sorting is applied **before** pagination, so all pages will be correctly sorted alphabetically.
+
+**Restart the server** to see the products sorted by name on the Products page!
+
+Made changes.
