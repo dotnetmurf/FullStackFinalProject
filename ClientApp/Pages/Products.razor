@@ -1,6 +1,7 @@
 @page "/products"
 @using ClientApp.Models
 @using ClientApp.Services
+@using Microsoft.AspNetCore.Components.Routing
 @implements IDisposable
 @inject ProductService ProductService
 @inject ProductsStateService StateService
@@ -291,6 +292,9 @@
     {
         loadingMessage = "Initializing...";
         
+        // Subscribe to navigation events to reload when returning from other pages
+        Navigation.LocationChanged += OnLocationChanged;
+        
         // Initialize from state
         searchQuery = StateService.SearchTerm;
         selectedCategoryId = StateService.CategoryId?.ToString() ?? string.Empty;
@@ -302,9 +306,26 @@
         await LoadProductsAsync();
     }
 
+    /// <summary>
+    /// Handles navigation events to reload data when returning to this page
+    /// </summary>
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        // Only reload if navigating to the products page
+        if (e.Location.Contains("/products"))
+        {
+            await InvokeAsync(async () =>
+            {
+                await LoadProductsAsync();
+                StateHasChanged();
+            });
+        }
+    }
+
     public void Dispose()
     {
         searchDebounceTimer?.Dispose();
+        Navigation.LocationChanged -= OnLocationChanged;
     }
 
     /// <summary>

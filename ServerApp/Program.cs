@@ -3,6 +3,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.OpenApi.Models;
 using System.Diagnostics;
 using System.Reflection;
+using System.Collections.Concurrent;
 using ServerApp.Data;
 using ServerApp.Models;
 using ServerApp.Services;
@@ -80,6 +81,10 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Cache key registry for tracking all product cache keys
+// This allows us to invalidate all product-related caches without guessing keys
+var productCacheKeys = new ConcurrentBag<string>();
 
 // Get logger for startup messages
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
@@ -175,6 +180,9 @@ app.MapGet("/api/products", async (
             SlidingExpiration = TimeSpan.FromMinutes(2)
         };
         
+        // Register this cache key for later invalidation
+        productCacheKeys.Add(cacheKey);
+        
         cache.Set(cacheKey, paginatedList, cacheOptions);
         
         sw.Stop();
@@ -265,25 +273,25 @@ app.MapGet("/api/product/{id}", async (int id, HttpContext context, IMemoryCache
 });
 
 // Helper method to invalidate all paginated product caches
-void InvalidateProductCaches(IMemoryCache cache, ILogger<Program> logger)
+void InvalidateProductCaches(IMemoryCache cache, ILogger<Program> logger, ConcurrentBag<string> cacheKeys)
 {
-    // Note: IMemoryCache doesn't provide a way to enumerate keys
-    // We need to invalidate caches for all combinations of pages, sizes, and search terms
-    // Since search terms are dynamic, we clear common pagination combinations
-    // In production, consider using a distributed cache with key enumeration support
-    for (int page = 1; page <= 10; page++)
+    // Use the cache key registry to clear all tracked product caches
+    logger.LogInformation("Starting cache invalidation using registry...");
+    
+    int keysRemoved = 0;
+    var keysSnapshot = cacheKeys.ToArray();
+    
+    foreach (var key in keysSnapshot)
     {
-        foreach (int size in new[] { 12, 24, 36, 48, 60 })
-        {
-            // Clear cache for non-search queries
-            var key = $"products_page{page}_size{size}_search";
-            cache.Remove(key);
-            
-            // Note: Search-specific caches will expire naturally after 5 minutes
-            // For production, consider adding a cache version/generation number
-        }
+        cache.Remove(key);
+        keysRemoved++;
+        logger.LogInformation("Removed cache key: {CacheKey}", key);
     }
-    logger.LogDebug("Invalidated paginated product caches - search caches will expire naturally");
+    
+    // Clear the registry after invalidation
+    cacheKeys.Clear();
+    
+    logger.LogInformation("Cache invalidation complete - removed {Count} tracked cache keys", keysRemoved);
 }
 
 // POST /api/product - Creates a new product
@@ -325,7 +333,7 @@ app.MapPost("/api/product", async (CreateProductRequest request, HttpContext con
         await dbContext.SaveChangesAsync();
         
         // Invalidate all paginated product caches
-        InvalidateProductCaches(cache, logger);
+        InvalidateProductCaches(cache, logger, productCacheKeys);
         
         sw.Stop();
         logger.LogInformation("POST /api/product created product {Id} in {ElapsedMs} ms", newId, sw.ElapsedMilliseconds);
@@ -377,7 +385,7 @@ app.MapPut("/api/product/{id}", async (int id, UpdateProductRequest request, Htt
         await dbContext.SaveChangesAsync();
         
         // Invalidate relevant caches
-        InvalidateProductCaches(cache, logger);
+        InvalidateProductCaches(cache, logger, productCacheKeys);
         cache.Remove($"product_{id}");
         
         sw.Stop();
@@ -416,7 +424,7 @@ app.MapDelete("/api/product/{id}", async (int id, HttpContext context, IMemoryCa
         await dbContext.SaveChangesAsync();
         
         // Invalidate relevant caches
-        InvalidateProductCaches(cache, logger);
+        InvalidateProductCaches(cache, logger, productCacheKeys);
         cache.Remove($"product_{id}");
         
         sw.Stop();
@@ -455,7 +463,7 @@ app.MapPost("/api/products/refresh", async (HttpContext context, IMemoryCache ca
         await db.SaveChangesAsync();
         
         // Invalidate all product caches
-        InvalidateProductCaches(cache, logger);
+        InvalidateProductCaches(cache, logger, productCacheKeys);
         
         sw.Stop();
         logger.LogInformation("POST /api/products/refresh completed - Reset {Count} products in {ElapsedMs} ms", 
