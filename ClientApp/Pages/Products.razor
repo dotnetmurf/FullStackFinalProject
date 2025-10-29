@@ -5,6 +5,7 @@
 @inject ProductService ProductService
 @inject ProductsStateService StateService
 @inject NavigationManager Navigation
+@inject ErrorHandlerService ErrorHandler
 
 <PageTitle>Products - InventoryHub</PageTitle>
 
@@ -141,13 +142,10 @@
         </div>
     }
 
-    @if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            @errorMessage
-            <button type="button" class="btn-close" @onclick="() => errorMessage = string.Empty"></button>
-        </div>
-    }
+    <!-- Error Alert with Retry Support -->
+    <ErrorAlert Error="@currentError" 
+                OnDismiss="() => currentError = null" 
+                OnRetry="RetryLastOperation" />
 
     @if (isLoading)
     {
@@ -281,7 +279,8 @@
     private bool isLoading = true;
     private bool isRefreshing = false;
     private bool showRefreshModal = false;
-    private string errorMessage = string.Empty;
+    private UserError? currentError;
+    private Func<Task>? lastFailedOperation;
     private string searchQuery = string.Empty;
     private string selectedCategoryId = string.Empty;
     private Timer? searchDebounceTimer;
@@ -309,13 +308,15 @@
     /// </summary>
     private async Task LoadCategoriesAsync()
     {
+        lastFailedOperation = LoadCategoriesAsync;
+        
         try
         {
             categories = await ProductService.GetCategoriesAsync();
         }
         catch (Exception ex)
         {
-            errorMessage = $"Unable to load categories: {ex.Message}";
+            currentError = ErrorHandler.HandleException(ex, "loading categories");
         }
     }
 
@@ -324,23 +325,21 @@
     /// </summary>
     private async Task LoadProductsAsync()
     {
+        lastFailedOperation = LoadProductsAsync;
+        
         try
         {
             isLoading = true;
-            errorMessage = string.Empty;
+            currentError = null;
             products = await ProductService.GetProductsAsync(
                 pageNumber: StateService.PageNumber, 
                 pageSize: StateService.PageSize,
                 searchTerm: StateService.SearchTerm,
                 categoryId: StateService.CategoryId);
         }
-        catch (HttpRequestException)
-        {
-            errorMessage = "Unable to connect to the server. Please ensure the server is running.";
-        }
         catch (Exception ex)
         {
-            errorMessage = $"An error occurred while loading products: {ex.Message}";
+            currentError = ErrorHandler.HandleException(ex, "loading products");
         }
         finally
         {
@@ -448,10 +447,12 @@
     /// </summary>
     private async Task RefreshSampleData()
     {
+        lastFailedOperation = RefreshSampleData;
+        
         try
         {
             isRefreshing = true;
-            errorMessage = string.Empty;
+            currentError = null;
             
             // Call the API to refresh sample data
             await ProductService.RefreshSampleDataAsync();
@@ -460,13 +461,9 @@
             StateService.SetPageNumber(1);
             await LoadProductsAsync();
         }
-        catch (HttpRequestException)
-        {
-            errorMessage = "Unable to connect to the server. Please ensure the server is running.";
-        }
         catch (Exception ex)
         {
-            errorMessage = $"An error occurred while refreshing sample data: {ex.Message}";
+            currentError = ErrorHandler.HandleException(ex, "refreshing sample data");
         }
         finally
         {
@@ -545,6 +542,17 @@
         StateService.SetSearchTerm(string.Empty);
         StateService.SetCategoryId(null);
         await LoadProductsAsync();
+    }
+
+    /// <summary>
+    /// Retries the last failed operation
+    /// </summary>
+    private async Task RetryLastOperation()
+    {
+        if (lastFailedOperation != null)
+        {
+            await lastFailedOperation();
+        }
     }
 
     private void NavigateToDetails(int productId)
