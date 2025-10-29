@@ -17,6 +17,8 @@ Would you like me to implement any of these recommendations? I can start with th
 
 I want to implement these recommendations one-at-a-time. Each one must have a successful dotnet build before starting the next one. Please start with Add ErrorHandlerService for centralized error translation.
 
+Implement the ErrorAlert component.
+
 
 
 
