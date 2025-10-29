@@ -3,23 +3,25 @@
 @using ClientApp.Services
 @inject ProductService ProductService
 @inject NavigationManager Navigation
+@inject ErrorHandlerService ErrorHandler
 
 <PageTitle>Edit Product - InventoryHub</PageTitle>
 
 <div class="container mt-4">
     <h2>Edit Product</h2>
 
-    @if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="alert alert-danger">@errorMessage</div>
-    }
+    <!-- Error Alert with Retry Support -->
+    <ErrorAlert Error="@currentError" 
+                OnDismiss="() => currentError = null" 
+                OnRetry="RetryLastOperation" />
 
-    @if (isLoading)
+    @if (!string.IsNullOrEmpty(loadingMessage))
     {
         <div class="text-center">
             <div class="spinner-border" role="status">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">@loadingMessage</span>
             </div>
+            <p class="mt-2 text-muted">@loadingMessage</p>
         </div>
     }
     else if (product != null)
@@ -46,40 +48,50 @@
     public int Id { get; set; }
 
     private Product? product;
-    private bool isLoading = true;
-    private string errorMessage = string.Empty;
+    private string loadingMessage = string.Empty;
+    private UserError? currentError;
+    private Func<Task>? lastFailedOperation;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadProductAsync();
     }
 
+    /// <summary>
+    /// Loads product details from the server
+    /// </summary>
     private async Task LoadProductAsync()
     {
+        lastFailedOperation = LoadProductAsync;
+        
         try
         {
-            isLoading = true;
-            errorMessage = string.Empty;
+            loadingMessage = "Loading product details...";
+            currentError = null;
             product = await ProductService.GetProductByIdAsync(Id);
-        }
-        catch (HttpRequestException)
-        {
-            errorMessage = "Unable to connect to the server. Please ensure the server is running.";
         }
         catch (Exception ex)
         {
-            errorMessage = $"An error occurred while loading the product: {ex.Message}";
+            currentError = ErrorHandler.HandleException(ex, "loading product details");
         }
         finally
         {
-            isLoading = false;
+            loadingMessage = string.Empty;
         }
     }
 
+    /// <summary>
+    /// Handles product update
+    /// </summary>
     private async Task HandleUpdate(Product updatedProduct)
     {
+        lastFailedOperation = async () => await HandleUpdate(updatedProduct);
+        
         try
         {
+            loadingMessage = "Updating product...";
+            currentError = null;
+            
             var request = new UpdateProductRequest
             {
                 Name = updatedProduct.Name,
@@ -93,16 +105,30 @@
             // Add timestamp to force component reload
             Navigation.NavigateTo($"/products?refresh={DateTime.Now.Ticks}");
         }
-        catch (HttpRequestException)
-        {
-            errorMessage = "Unable to update product. Please ensure the server is running.";
-        }
         catch (Exception ex)
         {
-            errorMessage = $"An error occurred while updating the product: {ex.Message}";
+            currentError = ErrorHandler.HandleException(ex, "updating product");
+        }
+        finally
+        {
+            loadingMessage = string.Empty;
         }
     }
 
+    /// <summary>
+    /// Retries the last failed operation
+    /// </summary>
+    private async Task RetryLastOperation()
+    {
+        if (lastFailedOperation != null)
+        {
+            await lastFailedOperation();
+        }
+    }
+
+    /// <summary>
+    /// Handles cancel action and returns to products list
+    /// </summary>
     private void HandleCancel()
     {
         Navigation.NavigateTo("/products");

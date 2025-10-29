@@ -3,21 +3,23 @@
 @using ClientApp.Services
 @inject ProductService ProductService
 @inject NavigationManager Navigation
+@inject ErrorHandlerService ErrorHandler
 
 <PageTitle>Product Details - InventoryHub</PageTitle>
 
 <div class="container mt-4">
-    @if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="alert alert-danger">@errorMessage</div>
-    }
+    <!-- Error Alert with Retry Support -->
+    <ErrorAlert Error="@currentError" 
+                OnDismiss="() => currentError = null" 
+                OnRetry="RetryLastOperation" />
 
-    @if (isLoading)
+    @if (!string.IsNullOrEmpty(loadingMessage))
     {
         <div class="text-center">
             <div class="spinner-border" role="status">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">@loadingMessage</span>
             </div>
+            <p class="mt-2 text-muted">@loadingMessage</p>
         </div>
     }
     else if (product != null)
@@ -76,36 +78,49 @@
     public int Id { get; set; }
 
     private Product? product;
-    private bool isLoading = true;
-    private string errorMessage = string.Empty;
+    private string loadingMessage = string.Empty;
+    private UserError? currentError;
+    private Func<Task>? lastFailedOperation;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadProductAsync();
     }
 
+    /// <summary>
+    /// Loads product details from the server
+    /// </summary>
     private async Task LoadProductAsync()
     {
+        lastFailedOperation = LoadProductAsync;
+        
         try
         {
-            isLoading = true;
-            errorMessage = string.Empty;
+            loadingMessage = "Loading product details...";
+            currentError = null;
             product = await ProductService.GetProductByIdAsync(Id);
             
             // If product is null, it means it was not found (404)
             // Don't set an error message - let the UI show "Product not found"
         }
-        catch (HttpRequestException)
-        {
-            errorMessage = "Unable to connect to the server. Please ensure the server is running.";
-        }
         catch (Exception ex)
         {
-            errorMessage = $"An error occurred while loading the product: {ex.Message}";
+            currentError = ErrorHandler.HandleException(ex, "loading product details");
         }
         finally
         {
-            isLoading = false;
+            loadingMessage = string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Retries the last failed operation
+    /// </summary>
+    private async Task RetryLastOperation()
+    {
+        if (lastFailedOperation != null)
+        {
+            await lastFailedOperation();
         }
     }
 
