@@ -174,7 +174,7 @@ public class ProductService
     /// <param name="pageNumber">Page number (1-based)</param>
     /// <param name="pageSize">Number of items per page</param>
     /// <returns>Paginated list of products</returns>
-    public async Task<PaginatedList<Product>> GetProductsAsync(int pageNumber = 1, int pageSize = 10)
+    public async Task<PaginatedList<Product>> GetProductsAsync(int pageNumber = 1, int pageSize = 12)
     {
         try
         {

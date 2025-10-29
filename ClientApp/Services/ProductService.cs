@@ -36,7 +36,7 @@ public class ProductService
     /// <param name="categoryId">Optional category ID to filter products by category</param>
     /// <returns>Paginated list of products</returns>
     /// <exception cref="HttpRequestException">Thrown when API request fails</exception>
-    public async Task<PaginatedList<Product>> GetProductsAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null, int? categoryId = null)
+    public async Task<PaginatedList<Product>> GetProductsAsync(int pageNumber = 1, int pageSize = 12, string? searchTerm = null, int? categoryId = null)
     {
         try
         {
@@ -103,13 +103,27 @@ public class ProductService
     /// <param name="request">Product creation request with required fields</param>
     /// <returns>Created product with assigned ID</returns>
     /// <exception cref="HttpRequestException">Thrown when API request fails</exception>
+    /// <exception cref="ValidationException">Thrown when validation fails with detailed error information</exception>
     public async Task<Product?> CreateProductAsync(CreateProductRequest request)
     {
         try
         {
             var response = await _httpClient.PostAsJsonAsync("/api/product", request);
+            
+            if (!response.IsSuccessStatusCode && response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+            {
+                // Try to parse validation errors
+                var errorContent = await response.Content.ReadAsStringAsync();
+                throw new ValidationException(errorContent);
+            }
+            
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<Product>();
+        }
+        catch (ValidationException)
+        {
+            // Re-throw validation exceptions as-is
+            throw;
         }
         catch (HttpRequestException ex)
         {
@@ -125,13 +139,27 @@ public class ProductService
     /// <param name="request">Product update request with modified fields</param>
     /// <returns>Updated product</returns>
     /// <exception cref="HttpRequestException">Thrown when API request fails</exception>
+    /// <exception cref="ValidationException">Thrown when validation fails with detailed error information</exception>
     public async Task<Product?> UpdateProductAsync(int id, UpdateProductRequest request)
     {
         try
         {
             var response = await _httpClient.PutAsJsonAsync($"/api/product/{id}", request);
+            
+            if (!response.IsSuccessStatusCode && response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+            {
+                // Try to parse validation errors
+                var errorContent = await response.Content.ReadAsStringAsync();
+                throw new ValidationException(errorContent);
+            }
+            
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<Product>();
+        }
+        catch (ValidationException)
+        {
+            // Re-throw validation exceptions as-is
+            throw;
         }
         catch (HttpRequestException ex)
         {

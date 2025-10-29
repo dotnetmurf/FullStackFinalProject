@@ -35,6 +35,14 @@ public class ErrorHandlerService
 
         return ex switch
         {
+            ValidationException validationEx => new UserError
+            {
+                Title = "Validation Error",
+                Message = ParseValidationErrors(validationEx.ValidationErrorsJson),
+                ActionMessage = "Please correct the errors and try again.",
+                Severity = ErrorSeverity.Warning,
+                IsRetryable = false
+            },
             HttpRequestException httpEx => HandleHttpException(httpEx, context),
             TaskCanceledException => new UserError
             {
@@ -148,6 +156,45 @@ public class ErrorHandlerService
                 IsRetryable = true
             }
         };
+    }
+
+    /// <summary>
+    /// Parses validation problem details from a 400 Bad Request response
+    /// </summary>
+    /// <param name="responseBody">The JSON response body from the server</param>
+    /// <returns>A formatted error message with all validation errors</returns>
+    public string ParseValidationErrors(string responseBody)
+    {
+        try
+        {
+            var problemDetails = System.Text.Json.JsonSerializer.Deserialize<ValidationProblemDetails>(
+                responseBody, 
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (problemDetails?.Errors != null && problemDetails.Errors.Any())
+            {
+                var errorMessages = new List<string>();
+                
+                foreach (var error in problemDetails.Errors)
+                {
+                    var fieldName = error.Key;
+                    var messages = error.Value;
+                    
+                    // Format: "Field Name: error message 1, error message 2"
+                    errorMessages.Add($"• {fieldName}: {string.Join(", ", messages)}");
+                }
+                
+                return string.Join("\n", errorMessages);
+            }
+            
+            // Fallback to detail or title if no specific errors
+            return problemDetails?.Detail ?? problemDetails?.Title ?? "Validation failed.";
+        }
+        catch
+        {
+            // If parsing fails, return the raw response
+            return responseBody;
+        }
     }
 
     /// <summary>

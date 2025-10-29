@@ -304,12 +304,14 @@ app.MapPost("/api/product", async (CreateProductRequest request, HttpContext con
     
     try
     {
-        // Validate required fields
-        if (string.IsNullOrEmpty(request.Name))
+        // Validate request using Data Annotations
+        if (!ValidationService.TryValidate(request, out var validationErrors))
         {
             sw.Stop();
-            logger.LogWarning("POST /api/product - Invalid product data provided: Name is required");
-            return Results.BadRequest("Name is required");
+            validationErrors!.TraceId = context.TraceIdentifier;
+            logger.LogWarning("POST /api/product - Validation failed: {Errors}", 
+                string.Join("; ", validationErrors.Errors.Select(e => $"{e.Key}: {string.Join(", ", e.Value)}")));
+            return Results.BadRequest(validationErrors);
         }
         
         var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
@@ -357,6 +359,16 @@ app.MapPut("/api/product/{id}", async (int id, UpdateProductRequest request, Htt
     
     try
     {
+        // Validate request using Data Annotations
+        if (!ValidationService.TryValidate(request, out var validationErrors))
+        {
+            sw.Stop();
+            validationErrors!.TraceId = context.TraceIdentifier;
+            logger.LogWarning("PUT /api/product/{Id} - Validation failed: {Errors}", id,
+                string.Join("; ", validationErrors.Errors.Select(e => $"{e.Key}: {string.Join(", ", e.Value)}")));
+            return Results.BadRequest(validationErrors);
+        }
+        
         var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
         var existingProduct = await dbContext.Products.FindAsync(id);
         
@@ -365,13 +377,6 @@ app.MapPut("/api/product/{id}", async (int id, UpdateProductRequest request, Htt
             sw.Stop();
             logger.LogWarning("PUT /api/product/{Id} - Product not found", id);
             return Results.NotFound();
-        }
-        
-        if (string.IsNullOrEmpty(request.Name))
-        {
-            sw.Stop();
-            logger.LogWarning("PUT /api/product/{Id} - Invalid product data provided: Name is required", id);
-            return Results.BadRequest("Name is required");
         }
         
         existingProduct.Name = request.Name;

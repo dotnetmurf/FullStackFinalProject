@@ -6,7 +6,7 @@ namespace ServerApp.Models;
 public class PaginationParams
 {
     private const int MaxPageSize = 50;
-    private int _pageSize = 10;
+    private int _pageSize = 12;
 
     /// <summary>
     /// Page number (1-based)

@@ -2745,7 +2745,7 @@ public class ProductServiceException : Exception
 // Update GetProductsAsync method
 public async Task<PaginatedList<Product>> GetProductsAsync(
     int pageNumber = 1, 
-    int pageSize = 10, 
+    int pageSize = 12, 
     string? searchTerm = null, 
     int? categoryId = null)
 {
