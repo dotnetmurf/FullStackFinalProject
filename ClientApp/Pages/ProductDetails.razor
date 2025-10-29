@@ -65,12 +65,6 @@
             </div>
         </div>
     }
-    else
-    {
-        <div class="alert alert-warning">
-            Product not found.
-        </div>
-    }
 </div>
 
 @code {
@@ -99,9 +93,6 @@
             loadingMessage = "Loading product details...";
             currentError = null;
             product = await ProductService.GetProductByIdAsync(Id);
-            
-            // If product is null, it means it was not found (404)
-            // Don't set an error message - let the UI show "Product not found"
         }
         catch (Exception ex)
         {

@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using ClientApp.Models;
 
@@ -63,7 +64,39 @@ public class ProductService
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Error fetching products from API");
-            throw;
+            
+            var context = new Dictionary<string, object>
+            {
+                ["PageNumber"] = pageNumber,
+                ["PageSize"] = pageSize
+            };
+            
+            if (!string.IsNullOrWhiteSpace(searchTerm))
+                context["SearchTerm"] = searchTerm;
+            
+            if (categoryId.HasValue)
+                context["CategoryId"] = categoryId.Value;
+            
+            // Use appropriate constructor based on whether we have a status code
+            if (ex.StatusCode.HasValue)
+            {
+                throw new ProductServiceException(
+                    "Failed to retrieve products from the server.",
+                    "GetProducts",
+                    ex.StatusCode.Value,
+                    ex,
+                    null,
+                    context
+                );
+            }
+            else
+            {
+                throw new ProductServiceException(
+                    "Failed to retrieve products from the server.",
+                    "GetProducts",
+                    ex
+                );
+            }
         }
     }
 
@@ -71,18 +104,29 @@ public class ProductService
     /// Retrieves a single product by ID
     /// </summary>
     /// <param name="id">Product ID</param>
-    /// <returns>Product if found, null otherwise</returns>
-    /// <exception cref="HttpRequestException">Thrown when API request fails (except 404)</exception>
+    /// <returns>Product if found</returns>
+    /// <exception cref="ProductServiceException">Thrown when product not found or API request fails</exception>
     public async Task<Product?> GetProductByIdAsync(int id)
     {
         try
         {
             var response = await _httpClient.GetAsync($"/api/product/{id}");
             
-            // Return null for 404 (product not found) without throwing
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            // Throw ProductServiceException for 404 (product not found)
+            if (response.StatusCode == HttpStatusCode.NotFound)
             {
-                return null;
+                var context = new Dictionary<string, object>
+                {
+                    ["ProductId"] = id
+                };
+                
+                throw new ProductServiceException(
+                    $"Product with ID {id} was not found.",
+                    "GetProductById",
+                    HttpStatusCode.NotFound,
+                    responseBody: null,
+                    context: context
+                );
             }
             
             // Throw for other error status codes
@@ -90,10 +134,39 @@ public class ProductService
             
             return await response.Content.ReadFromJsonAsync<Product>();
         }
+        catch (ProductServiceException)
+        {
+            // Re-throw ProductServiceException as-is
+            throw;
+        }
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Error fetching product {ProductId} from API", id);
-            throw;
+            
+            var context = new Dictionary<string, object>
+            {
+                ["ProductId"] = id
+            };
+            
+            if (ex.StatusCode.HasValue)
+            {
+                throw new ProductServiceException(
+                    $"Failed to retrieve product with ID {id}.",
+                    "GetProductById",
+                    ex.StatusCode.Value,
+                    ex,
+                    null,
+                    context
+                );
+            }
+            else
+            {
+                throw new ProductServiceException(
+                    $"Failed to retrieve product with ID {id}.",
+                    "GetProductById",
+                    ex
+                );
+            }
         }
     }
 
@@ -128,7 +201,31 @@ public class ProductService
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Error creating product");
-            throw;
+            
+            var context = new Dictionary<string, object>
+            {
+                ["ProductName"] = request.Name ?? "Unknown"
+            };
+            
+            if (ex.StatusCode.HasValue)
+            {
+                throw new ProductServiceException(
+                    "Failed to create product.",
+                    "CreateProduct",
+                    ex.StatusCode.Value,
+                    ex,
+                    null,
+                    context
+                );
+            }
+            else
+            {
+                throw new ProductServiceException(
+                    "Failed to create product.",
+                    "CreateProduct",
+                    ex
+                );
+            }
         }
     }
 
@@ -164,7 +261,32 @@ public class ProductService
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Error updating product {ProductId}", id);
-            throw;
+            
+            var context = new Dictionary<string, object>
+            {
+                ["ProductId"] = id,
+                ["ProductName"] = request.Name ?? "Unknown"
+            };
+            
+            if (ex.StatusCode.HasValue)
+            {
+                throw new ProductServiceException(
+                    $"Failed to update product with ID {id}.",
+                    "UpdateProduct",
+                    ex.StatusCode.Value,
+                    ex,
+                    null,
+                    context
+                );
+            }
+            else
+            {
+                throw new ProductServiceException(
+                    $"Failed to update product with ID {id}.",
+                    "UpdateProduct",
+                    ex
+                );
+            }
         }
     }
 
@@ -183,7 +305,31 @@ public class ProductService
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Error deleting product {ProductId}", id);
-            throw;
+            
+            var context = new Dictionary<string, object>
+            {
+                ["ProductId"] = id
+            };
+            
+            if (ex.StatusCode.HasValue)
+            {
+                throw new ProductServiceException(
+                    $"Failed to delete product with ID {id}.",
+                    "DeleteProduct",
+                    ex.StatusCode.Value,
+                    ex,
+                    null,
+                    context
+                );
+            }
+            else
+            {
+                throw new ProductServiceException(
+                    $"Failed to delete product with ID {id}.",
+                    "DeleteProduct",
+                    ex
+                );
+            }
         }
     }
 
@@ -202,7 +348,24 @@ public class ProductService
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Error fetching categories from API");
-            throw;
+            
+            if (ex.StatusCode.HasValue)
+            {
+                throw new ProductServiceException(
+                    "Failed to retrieve categories from the server.",
+                    "GetCategories",
+                    ex.StatusCode.Value,
+                    ex
+                );
+            }
+            else
+            {
+                throw new ProductServiceException(
+                    "Failed to retrieve categories from the server.",
+                    "GetCategories",
+                    ex
+                );
+            }
         }
     }
 
@@ -222,7 +385,24 @@ public class ProductService
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Error refreshing sample data");
-            throw;
+            
+            if (ex.StatusCode.HasValue)
+            {
+                throw new ProductServiceException(
+                    "Failed to refresh sample data.",
+                    "RefreshSampleData",
+                    ex.StatusCode.Value,
+                    ex
+                );
+            }
+            else
+            {
+                throw new ProductServiceException(
+                    "Failed to refresh sample data.",
+                    "RefreshSampleData",
+                    ex
+                );
+            }
         }
     }
 }

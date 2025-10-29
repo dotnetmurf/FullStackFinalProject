@@ -35,6 +35,7 @@ public class ErrorHandlerService
 
         return ex switch
         {
+            ProductServiceException productEx => HandleProductServiceException(productEx),
             ValidationException validationEx => new UserError
             {
                 Title = "Validation Error",
@@ -156,6 +157,119 @@ public class ErrorHandlerService
                 IsRetryable = true
             }
         };
+    }
+
+    /// <summary>
+    /// Handles ProductServiceException with operation-specific messages
+    /// </summary>
+    private UserError HandleProductServiceException(ProductServiceException ex)
+    {
+        var (title, message, actionMessage) = ex.Operation switch
+        {
+            "GetProducts" => (
+                "Failed to Load Products",
+                BuildContextMessage("Unable to retrieve the product list", ex.Context),
+                "Please check your connection and try again."
+            ),
+            "GetProductById" => (
+                "Failed to Load Product",
+                BuildContextMessage("Unable to retrieve the product details", ex.Context, "ProductId"),
+                "The product may have been deleted. Please refresh the product list."
+            ),
+            "CreateProduct" => (
+                "Failed to Create Product",
+                BuildContextMessage("Unable to create the product", ex.Context, "ProductName"),
+                "Please verify your connection and try again."
+            ),
+            "UpdateProduct" => (
+                "Failed to Update Product",
+                BuildContextMessage("Unable to update the product", ex.Context, "ProductId", "ProductName"),
+                "The product may have been modified or deleted. Please refresh and try again."
+            ),
+            "DeleteProduct" => (
+                "Failed to Delete Product",
+                BuildContextMessage("Unable to delete the product", ex.Context, "ProductId"),
+                "The product may have already been deleted. Please refresh the product list."
+            ),
+            "GetCategories" => (
+                "Failed to Load Categories",
+                "Unable to retrieve the category list from the server.",
+                "Please check your connection and try again."
+            ),
+            "RefreshSampleData" => (
+                "Failed to Refresh Data",
+                "Unable to refresh the sample data.",
+                "Please check your connection and try again."
+            ),
+            _ => (
+                "Operation Failed",
+                $"The operation '{ex.Operation}' could not be completed.",
+                "Please try again or contact support."
+            )
+        };
+
+        // Determine severity based on status code
+        var severity = ex.StatusCode switch
+        {
+            HttpStatusCode.NotFound => ErrorSeverity.Info,
+            HttpStatusCode.BadRequest => ErrorSeverity.Warning,
+            HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => ErrorSeverity.Warning,
+            null => ErrorSeverity.Error, // Network error
+            _ => ErrorSeverity.Error
+        };
+
+        // Determine if retryable (network errors and server errors are retryable)
+        var isRetryable = ex.StatusCode switch
+        {
+            HttpStatusCode.InternalServerError => true,
+            HttpStatusCode.ServiceUnavailable => true,
+            HttpStatusCode.BadGateway => true,
+            HttpStatusCode.GatewayTimeout => true,
+            null => true, // Network errors are retryable
+            _ => false
+        };
+
+        return new UserError
+        {
+            Title = title,
+            Message = message,
+            ActionMessage = actionMessage,
+            Severity = severity,
+            IsRetryable = isRetryable
+        };
+    }
+
+    /// <summary>
+    /// Builds a context-aware error message including relevant details
+    /// </summary>
+    private string BuildContextMessage(string baseMessage, Dictionary<string, object>? context, params string[] priorityKeys)
+    {
+        if (context == null || !context.Any())
+            return baseMessage;
+
+        var contextDetails = new List<string>();
+
+        // Add priority keys first (e.g., ProductId, ProductName)
+        foreach (var key in priorityKeys)
+        {
+            if (context.TryGetValue(key, out var value))
+            {
+                contextDetails.Add($"{key}: {value}");
+            }
+        }
+
+        // Add remaining context items (excluding priority keys already added)
+        foreach (var item in context.Where(kvp => !priorityKeys.Contains(kvp.Key)))
+        {
+            contextDetails.Add($"{item.Key}: {item.Value}");
+        }
+
+        if (contextDetails.Any())
+        {
+            return $"{baseMessage}.\n\nDetails:\n• {string.Join("\n• ", contextDetails)}";
+        }
+
+        return baseMessage;
     }
 
     /// <summary>
