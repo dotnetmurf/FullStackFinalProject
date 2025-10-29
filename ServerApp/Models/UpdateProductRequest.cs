@@ -39,4 +39,12 @@ public class UpdateProductRequest
     /// </summary>
     [Required(ErrorMessage = "Category is required")]
     public Category Category { get; set; } = new();
+    
+    /// <summary>
+    /// Validates that a valid category is selected
+    /// </summary>
+    public bool IsValid()
+    {
+        return Category != null && Category.Id > 0;
+    }
 }

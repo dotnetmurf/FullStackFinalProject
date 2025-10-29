@@ -314,6 +314,15 @@ app.MapPost("/api/product", async (CreateProductRequest request, HttpContext con
             return Results.BadRequest(validationErrors);
         }
         
+        // Additional validation: Category must have a valid ID
+        if (request.Category == null || request.Category.Id <= 0)
+        {
+            sw.Stop();
+            var categoryError = ValidationService.CreateFieldError("Category", "A valid category must be selected", context.TraceIdentifier);
+            logger.LogWarning("POST /api/product - Invalid category: {CategoryId}", request.Category?.Id ?? 0);
+            return Results.BadRequest(categoryError);
+        }
+        
         var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
         var maxId = await dbContext.Products.MaxAsync(p => p.Id);
         int newId = maxId + 1;
@@ -367,6 +376,15 @@ app.MapPut("/api/product/{id}", async (int id, UpdateProductRequest request, Htt
             logger.LogWarning("PUT /api/product/{Id} - Validation failed: {Errors}", id,
                 string.Join("; ", validationErrors.Errors.Select(e => $"{e.Key}: {string.Join(", ", e.Value)}")));
             return Results.BadRequest(validationErrors);
+        }
+        
+        // Additional validation: Category must have a valid ID
+        if (request.Category == null || request.Category.Id <= 0)
+        {
+            sw.Stop();
+            var categoryError = ValidationService.CreateFieldError("Category", "A valid category must be selected", context.TraceIdentifier);
+            logger.LogWarning("PUT /api/product/{Id} - Invalid category: {CategoryId}", id, request.Category?.Id ?? 0);
+            return Results.BadRequest(categoryError);
         }
         
         var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
