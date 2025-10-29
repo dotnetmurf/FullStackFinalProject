@@ -6,6 +6,7 @@
 @inject ProductsStateService StateService
 @inject NavigationManager Navigation
 @inject ErrorHandlerService ErrorHandler
+@inject ToastService ToastService
 
 <PageTitle>Products - InventoryHub</PageTitle>
 
@@ -461,6 +462,8 @@
             
             // Call the API to refresh sample data
             await ProductService.RefreshSampleDataAsync();
+            
+            ToastService.ShowSuccess("Sample data refreshed successfully!");
             
             // Reset to first page and reload products
             StateService.SetPageNumber(1);

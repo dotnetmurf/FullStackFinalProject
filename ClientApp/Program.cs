@@ -25,4 +25,7 @@ builder.Services.AddSingleton<ProductsStateService>();
 // Register ErrorHandlerService for centralized error handling
 builder.Services.AddScoped<ErrorHandlerService>();
 
+// Register ToastService for success notifications
+builder.Services.AddScoped<ToastService>();
+
 await builder.Build().RunAsync();

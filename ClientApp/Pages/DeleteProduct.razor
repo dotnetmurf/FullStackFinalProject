@@ -4,6 +4,7 @@
 @inject ProductService ProductService
 @inject NavigationManager Navigation
 @inject ErrorHandlerService ErrorHandler
+@inject ToastService ToastService
 
 <PageTitle>Delete Product - InventoryHub</PageTitle>
 
@@ -124,7 +125,12 @@
             isDeleting = true;
             loadingMessage = "Deleting product...";
             currentError = null;
+            
+            // Store product name before deletion
+            var productName = product?.Name ?? "Product";
+            
             await ProductService.DeleteProductAsync(Id);
+            ToastService.ShowSuccess($"'{productName}' deleted successfully!");
             Navigation.NavigateTo($"/products?refresh={DateTime.Now.Ticks}");
         }
         catch (Exception ex)

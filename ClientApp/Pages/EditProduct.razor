@@ -4,6 +4,7 @@
 @inject ProductService ProductService
 @inject NavigationManager Navigation
 @inject ErrorHandlerService ErrorHandler
+@inject ToastService ToastService
 
 <PageTitle>Edit Product - InventoryHub</PageTitle>
 
@@ -102,6 +103,7 @@
             };
 
             await ProductService.UpdateProductAsync(Id, request);
+            ToastService.ShowSuccess($"Product '{updatedProduct.Name}' updated successfully!");
             // Add timestamp to force component reload
             Navigation.NavigateTo($"/products?refresh={DateTime.Now.Ticks}");
         }

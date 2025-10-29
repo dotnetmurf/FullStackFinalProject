@@ -4,6 +4,7 @@
 @inject ProductService ProductService
 @inject NavigationManager Navigation
 @inject ErrorHandlerService ErrorHandler
+@inject ToastService ToastService
 
 <PageTitle>Create Product - InventoryHub</PageTitle>
 
@@ -66,10 +67,12 @@
             
             if (createdProduct != null)
             {
+                ToastService.ShowSuccess($"Product '{createdProduct.Name}' created successfully!");
                 Navigation.NavigateTo($"/product/{createdProduct.Id}");
             }
             else
             {
+                ToastService.ShowSuccess("Product created successfully!");
                 Navigation.NavigateTo($"/products?refresh={DateTime.Now.Ticks}");
             }
         }
