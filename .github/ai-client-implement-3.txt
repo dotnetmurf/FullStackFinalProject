@@ -1771,3 +1771,704 @@ The application is now running on http://localhost:5019 - you can test:
 - All buttons show their symbols correctly
 
 Made changes.
+
+dotnetmurf: What are your recommendations for implementing Add Search/Filter - Enable filtering products by category? Can this use a SelectList of Categories for selecting the filter, with an entry at the top of the list for "Show All Categories", which would be the default selection?
+
+GitHub Copilot: Great question! Yes, that's an excellent approach. Let me analyze the current implementation and provide recommendations for adding category filtering. 
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ServerApp/Models/Category.cs)
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Models/Category.cs)
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ServerApp/Program.cs#1-1), lines 1 to 80
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ServerApp/Program.cs#100-100), lines 100 to 200
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/Products.razor#1-1), lines 1 to 50
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Services/ProductsStateService.cs#1-1), lines 1 to 50
+
+Perfect! Now I have a complete picture. Here are my comprehensive recommendations for implementing category filtering:
+
+## 🎯 Recommendations for Category Filtering Implementation
+
+### **Overall Design Approach**
+Your idea of using a `<select>` dropdown with "Show All Categories" as the default is **excellent** and follows common UX patterns. Here's the complete implementation strategy:
+
+---
+
+## **1. State Management Enhancement**
+
+### Add CategoryId to ProductsStateService
+```csharp
+// Add to ClientApp/Services/ProductsStateService.cs
+
+/// <summary>
+/// Gets or sets the selected category ID for filtering products
+/// </summary>
+/// <remarks>
+/// Default is null (no category filter - show all)
+/// </remarks>
+public int? CategoryId { get; set; } = null;
+
+/// <summary>
+/// Updates the selected category and notifies subscribers
+/// </summary>
+/// <param name="categoryId">Selected category ID, or null for "Show All"</param>
+public void SetCategoryId(int? categoryId)
+{
+    CategoryId = categoryId;
+    PageNumber = 1; // Reset to page 1 when filter changes
+    NotifyStateChanged();
+}
+```
+
+**Why this approach?**
+- `int?` allows null for "Show All Categories"
+- Resets to page 1 when filter changes (like search does)
+- Maintains consistency with existing state patterns
+
+---
+
+## **2. Server-Side API Enhancement**
+
+### Update GET /api/products endpoint
+```csharp
+// In ServerApp/Program.cs
+
+app.MapGet("/api/products", async (
+    [AsParameters] PaginationParams pagination,
+    string? searchTerm,
+    int? categoryId,  // ⬅️ ADD THIS PARAMETER
+    HttpContext context,
+    IMemoryCache cache,
+    ILogger<Program> logger) =>
+{
+    var pageNumber = Math.Max(1, pagination.PageNumber);
+    var pageSize = pagination.PageSize <= 0 ? 10 : pagination.PageSize;
+    var normalizedSearch = searchTerm?.Trim() ?? string.Empty;
+    
+    // Update cache key to include category
+    var cacheKey = $"products_page{pageNumber}_size{pageSize}_search{normalizedSearch}_cat{categoryId}";
+    
+    try
+    {
+        if (cache.TryGetValue(cacheKey, out PaginatedList<Product>? cachedProducts))
+        {
+            // ... existing cache hit logic
+        }
+        
+        var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
+        var query = dbContext.Products.AsQueryable();
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(normalizedSearch))
+        {
+            query = query.Where(p => EF.Functions.Like(p.Name, $"%{normalizedSearch}%"));
+        }
+
+        // Apply category filter ⬅️ ADD THIS
+        if (categoryId.HasValue)
+        {
+            query = query.Where(p => p.CategoryId == categoryId.Value);
+        }
+
+        // ... rest of existing logic (sorting, pagination, caching)
+    }
+    // ... error handling
+});
+```
+
+**Benefits:**
+- Works with existing caching system
+- Cache keys differentiate between category filters
+- Optional parameter - backward compatible
+
+---
+
+## **3. Client-Side Service Enhancement**
+
+### Update ProductService.cs
+```csharp
+// In ClientApp/Services/ProductService.cs
+
+/// <summary>
+/// Retrieves a paginated list of products with optional filtering
+/// </summary>
+/// <param name="pageNumber">Page number (1-based)</param>
+/// <param name="pageSize">Number of items per page</param>
+/// <param name="searchTerm">Optional search term for product name</param>
+/// <param name="categoryId">Optional category ID for filtering</param>
+public async Task<PaginatedList<Product>> GetProductsAsync(
+    int pageNumber = 1, 
+    int pageSize = 12, 
+    string? searchTerm = null,
+    int? categoryId = null)  // ⬅️ ADD THIS PARAMETER
+{
+    var queryParams = new List<string>
+    {
+        $"pageNumber={pageNumber}",
+        $"pageSize={pageSize}"
+    };
+
+    if (!string.IsNullOrWhiteSpace(searchTerm))
+    {
+        queryParams.Add($"searchTerm={Uri.EscapeDataString(searchTerm)}");
+    }
+
+    // Add category filter ⬅️ ADD THIS
+    if (categoryId.HasValue)
+    {
+        queryParams.Add($"categoryId={categoryId.Value}");
+    }
+
+    var queryString = string.Join("&", queryParams);
+    var response = await _httpClient.GetFromJsonAsync<PaginatedList<Product>>(
+        $"api/products?{queryString}");
+    
+    return response ?? new PaginatedList<Product>
+    {
+        Items = new List<Product>(),
+        PageNumber = pageNumber,
+        PageSize = pageSize,
+        TotalCount = 0,
+        TotalPages = 0
+    };
+}
+
+/// <summary>
+/// Retrieves all available categories for filtering
+/// </summary>
+public async Task<List<Category>> GetCategoriesAsync()
+{
+    var response = await _httpClient.GetFromJsonAsync<List<Category>>("api/categories");
+    return response ?? new List<Category>();
+}
+```
+
+---
+
+## **4. UI Implementation in Products.razor**
+
+### Add category dropdown next to search
+```razor
+<!-- Search and Filter Bar -->
+<div class="row mb-3">
+    <!-- Search by Name -->
+    <div class="col-md-6 col-lg-4">
+        <div class="input-group">
+            <span class="input-group-text">🔍</span>
+            <input type="search" 
+                   class="form-control" 
+                   placeholder="Search products by name..."
+                   value="@searchQuery"
+                   @oninput="OnSearchInput"
+                   aria-label="Search products" />
+            @if (!string.IsNullOrWhiteSpace(searchQuery))
+            {
+                <button class="btn btn-outline-secondary" type="button" 
+                        @onclick="ClearSearch" title="Clear search">
+                    ×
+                </button>
+            }
+        </div>
+    </div>
+
+    <!-- Filter by Category -->
+    <div class="col-md-6 col-lg-4">
+        <div class="input-group">
+            <span class="input-group-text">🏷️</span>
+            <select class="form-select" 
+                    value="@selectedCategoryId" 
+                    @onchange="OnCategoryChanged"
+                    aria-label="Filter by category">
+                <option value="">Show All Categories</option>
+                @if (categories != null)
+                {
+                    @foreach (var category in categories)
+                    {
+                        <option value="@category.Id">@category.Name</option>
+                    }
+                }
+            </select>
+            @if (StateService.CategoryId.HasValue)
+            {
+                <button class="btn btn-outline-secondary" type="button" 
+                        @onclick="ClearCategoryFilter" title="Clear filter">
+                    ×
+                </button>
+            }
+        </div>
+    </div>
+</div>
+```
+
+### Add code-behind logic
+```csharp
+@code {
+    private List<Category>? categories;
+    private string selectedCategoryId = string.Empty;
+    
+    // ... existing fields
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Initialize from state
+        searchQuery = StateService.SearchTerm;
+        selectedCategoryId = StateService.CategoryId?.ToString() ?? string.Empty;
+        
+        // Load categories for dropdown
+        await LoadCategoriesAsync();
+        
+        // Load products
+        await LoadProductsAsync();
+    }
+
+    /// <summary>
+    /// Loads available categories from the server
+    /// </summary>
+    private async Task LoadCategoriesAsync()
+    {
+        try
+        {
+            categories = await ProductService.GetCategoriesAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Unable to load categories: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Loads products with current filters
+    /// </summary>
+    private async Task LoadProductsAsync()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = string.Empty;
+            products = await ProductService.GetProductsAsync(
+                pageNumber: StateService.PageNumber, 
+                pageSize: StateService.PageSize,
+                searchTerm: StateService.SearchTerm,
+                categoryId: StateService.CategoryId);  // ⬅️ ADD THIS
+        }
+        catch (HttpRequestException)
+        {
+            errorMessage = "Unable to connect to the server. Please ensure the server is running.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred while loading products: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// Handles category filter change
+    /// </summary>
+    private async Task OnCategoryChanged(ChangeEventArgs e)
+    {
+        selectedCategoryId = e.Value?.ToString() ?? string.Empty;
+        
+        // Parse category ID (empty string = null = show all)
+        int? categoryId = string.IsNullOrEmpty(selectedCategoryId) 
+            ? null 
+            : int.Parse(selectedCategoryId);
+        
+        StateService.SetCategoryId(categoryId);
+        await LoadProductsAsync();
+    }
+
+    /// <summary>
+    /// Clears the category filter
+    /// </summary>
+    private async Task ClearCategoryFilter()
+    {
+        selectedCategoryId = string.Empty;
+        StateService.SetCategoryId(null);
+        await LoadProductsAsync();
+    }
+
+    /// <summary>
+    /// Updates ClearSearch to handle both filters
+    /// </summary>
+    private async Task ClearSearch()
+    {
+        searchQuery = string.Empty;
+        StateService.SetSearchTerm(string.Empty);
+        await LoadProductsAsync();
+    }
+}
+```
+
+---
+
+## **5. Enhanced No-Results Message**
+
+Update the empty state to show active filters:
+
+```razor
+@if (!string.IsNullOrWhiteSpace(StateService.SearchTerm) || StateService.CategoryId.HasValue)
+{
+    <div class="alert alert-warning">
+        <h5 class="alert-heading">🔍 No Results Found</h5>
+        <p class="mb-2">
+            No products match your filters:
+            @if (!string.IsNullOrWhiteSpace(StateService.SearchTerm))
+            {
+                <span>Search: <strong>"@StateService.SearchTerm"</strong></span>
+            }
+            @if (StateService.CategoryId.HasValue && categories != null)
+            {
+                var categoryName = categories.FirstOrDefault(c => c.Id == StateService.CategoryId.Value)?.Name;
+                if (!string.IsNullOrWhiteSpace(StateService.SearchTerm)) { <span> | </span> }
+                <span>Category: <strong>@categoryName</strong></span>
+            }
+        </p>
+        <hr />
+        <p class="mb-0">
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ClearAllFilters">
+                × Clear All Filters
+            </button>
+        </p>
+    </div>
+}
+```
+
+Add method:
+```csharp
+private async Task ClearAllFilters()
+{
+    searchQuery = string.Empty;
+    selectedCategoryId = string.Empty;
+    StateService.SetSearchTerm(string.Empty);
+    StateService.SetCategoryId(null);
+    await LoadProductsAsync();
+}
+```
+
+---
+
+## **6. Optional Enhancement: Active Filter Badges**
+
+Show active filters as Bootstrap badges above the product grid:
+
+```razor
+@if (!string.IsNullOrWhiteSpace(StateService.SearchTerm) || StateService.CategoryId.HasValue)
+{
+    <div class="mb-3">
+        <span class="text-muted me-2">Active Filters:</span>
+        @if (!string.IsNullOrWhiteSpace(StateService.SearchTerm))
+        {
+            <span class="badge bg-primary me-2">
+                Search: @StateService.SearchTerm
+                <button type="button" class="btn-close btn-close-white ms-1" 
+                        style="font-size: 0.6rem;" @onclick="ClearSearch"></button>
+            </span>
+        }
+        @if (StateService.CategoryId.HasValue && categories != null)
+        {
+            var categoryName = categories.FirstOrDefault(c => c.Id == StateService.CategoryId.Value)?.Name;
+            <span class="badge bg-secondary me-2">
+                Category: @categoryName
+                <button type="button" class="btn-close btn-close-white ms-1" 
+                        style="font-size: 0.6rem;" @onclick="ClearCategoryFilter"></button>
+            </span>
+        }
+    </div>
+}
+```
+
+---
+
+## **7. Performance Considerations**
+
+✅ **Caching Strategy**: Cache keys include both search and category filters  
+✅ **State Persistence**: CategoryId maintained across navigation  
+✅ **Page Reset**: Automatically resets to page 1 when filters change  
+✅ **Database Efficiency**: Filters applied before pagination  
+
+---
+
+## **Summary**
+
+**This implementation provides:**
+1. ✅ Dropdown with "Show All Categories" default
+2. ✅ Clear button appears when category selected
+3. ✅ Works alongside search filtering
+4. ✅ State persists across navigation
+5. ✅ Proper caching with filter-aware keys
+6. ✅ Responsive UI with Bootstrap styling
+7. ✅ Clear visual feedback of active filters
+
+**Benefits over alternatives:**
+- More intuitive than multiple checkboxes for 7 categories
+- Cleaner UI than radio buttons
+- Single selection aligns with common e-commerce patterns
+- Easier to implement than multi-select with "AND" logic
+
+Would you like me to implement this solution for you? I can make all the necessary changes in one go!
+
+dotnetmurf: Please implement this solution for me.
+
+GitHub Copilot: I'll implement the complete category filtering solution for you. Let me start by making all the necessary changes: 
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Services/ProductsStateService.cs)
+
+## Step 1: Update ProductsStateService to include CategoryId 
+
+Using "Replace String in File"
+
+
+```
+
+```
+
+
+Using "Replace String in File"
+
+
+```
+
+```
+## Step 2: Update Server-Side API to support category filtering 
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ServerApp/Program.cs#105-105), lines 105 to 150
+
+Using "Replace String in File"
+
+
+```
+
+```
+
+
+Using "Replace String in File"
+
+
+```
+
+```
+## Step 3: Update ProductService to support category filtering 
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Services/ProductService.cs#1-1), lines 1 to 100
+
+Using "Replace String in File"
+
+
+```
+
+```
+Now let's add the GetCategoriesAsync method: 
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Services/ProductService.cs#160-160), lines 160 to 190
+
+Great! The GetCategoriesAsync method already exists. Now let's update the Products.razor page:
+
+## Step 4: Update Products.razor UI 
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/Products.razor#30-30), lines 30 to 100
+
+Using "Replace String in File"
+
+
+```
+
+```
+Good, now let's update the no-results message and add the code-behind: 
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/Products.razor#210-210), lines 210 to 240
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/Products.razor#235-235), lines 235 to 270
+
+Using "Replace String in File"
+
+
+```
+
+```
+Now let's update the code-behind section: 
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/Products.razor#270-270), lines 270 to 300
+
+Using "Replace String in File"
+
+
+```
+
+```
+
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/Products.razor#300-300), lines 300 to 330
+
+Using "Replace String in File"
+
+
+```
+
+```
+Now let's add the new event handlers: 
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/Products.razor#450-450), lines 450 to 475
+
+Read [](file:///s%3A/Microsoft%20Full-Stack%20Developer%20Professional%20Certificate/07%20Full-Stack%20Integration/Final%20Project/FullStackFinalProject/FullStackApp/ClientApp/Pages/Products.razor#475-475), lines 475 to 522
+
+Using "Replace String in File"
+
+
+```
+
+```
+Perfect! Now let's build and run both applications to test the implementation: 
+
+Ran terminal command: cd "S:\Microsoft Full-Stack Developer Professional Certificate\07 Full-Stack Integration\Final Project\FullStackFinalProject\FullStackApp\ServerApp"; dotnet build
+
+Ran terminal command: cd "S:\Microsoft Full-Stack Developer Professional Certificate\07 Full-Stack Integration\Final Project\FullStackFinalProject\FullStackApp\ClientApp"; dotnet build
+
+Excellent! Both builds succeeded. Now let's start both applications: 
+
+Ran terminal command: cd "S:\Microsoft Full-Stack Developer Professional Certificate\07 Full-Stack Integration\Final Project\FullStackFinalProject\FullStackApp\ServerApp"; dotnet run
+
+Checked background terminal output
+
+Ran terminal command: cd "S:\Microsoft Full-Stack Developer Professional Certificate\07 Full-Stack Integration\Final Project\FullStackFinalProject\FullStackApp\ClientApp"; dotnet run
+
+Checked background terminal output
+
+Perfect! Both applications are running successfully. Let me create a summary document of what was implemented:
+
+## ✅ Category Filtering Implementation Complete!
+
+### **What Was Implemented**
+
+I've successfully implemented the complete category filtering feature for your InventoryHub application. Here's what was added:
+
+---
+
+### **1. State Management (ProductsStateService.cs)**
+✅ Added `CategoryId` property (nullable int) for filter state  
+✅ Added `SetCategoryId()` method that resets to page 1 when filter changes  
+✅ State persists across navigation like search and page size
+
+---
+
+### **2. Server-Side API (ServerApp/Program.cs)**
+✅ Added `categoryId` parameter to GET `/api/products` endpoint  
+✅ Updated cache keys to include category filter  
+✅ Added database query filter: `query.Where(p => p.CategoryId == categoryId.Value)`  
+✅ Maintains existing search functionality - both filters work together
+
+---
+
+### **3. Client Service (ProductService.cs)**
+✅ Updated `GetProductsAsync()` to accept `categoryId` parameter  
+✅ Query string builder includes category in URL when selected  
+✅ Already had `GetCategoriesAsync()` method available
+
+---
+
+### **4. UI Components (Products.razor)**
+
+#### **New Features:**
+1. **Category Dropdown** 🏷️
+   - Located next to search bar
+   - "Show All Categories" as default option
+   - Lists all 7 categories (Laptops, Desktops, Monitors, etc.)
+   - Clear button (×) appears when category selected
+
+2. **Active Filter Badges**
+   - Shows active filters as colored badges above product grid
+   - Search term in blue badge
+   - Category name in gray badge
+   - Each badge has its own close button
+
+3. **Enhanced No-Results Message**
+   - Shows which filters are active when no results found
+   - Displays both search term and category if both are applied
+   - "Clear All Filters" button to reset everything at once
+
+4. **Event Handlers:**
+   - `OnCategoryChanged()` - handles dropdown selection
+   - `ClearCategoryFilter()` - clears only category filter
+   - `ClearAllFilters()` - clears both search and category
+   - `LoadCategoriesAsync()` - loads categories on component init
+
+---
+
+### **5. How It Works**
+
+**User Experience:**
+1. User sees category dropdown next to search box
+2. Selects a category (e.g., "Laptops")
+3. Products filter immediately to show only laptops
+4. Can combine with search (e.g., search "Dell" within "Laptops")
+5. Active filters shown as badges
+6. Click × on any badge or filter control to clear
+7. "Clear All Filters" button resets everything
+
+**Technical Flow:**
+```
+User selects category 
+  → OnCategoryChanged() 
+  → StateService.SetCategoryId() 
+  → Resets to page 1 
+  → LoadProductsAsync() 
+  → ProductService.GetProductsAsync(categoryId: value) 
+  → API GET /api/products?categoryId=X 
+  → Database query with .Where(p => p.CategoryId == X) 
+  → Results cached with category-specific key 
+  → UI updates with filtered products
+```
+
+---
+
+### **6. Features & Benefits**
+
+✅ **State Persistence** - Category selection survives navigation  
+✅ **Efficient Caching** - Separate cache entries per category filter  
+✅ **Combined Filtering** - Search + Category work together  
+✅ **Page Reset** - Automatically goes to page 1 when filter changes  
+✅ **Visual Feedback** - Active filters clearly displayed  
+✅ **Responsive Design** - Works on mobile with Bootstrap grid  
+✅ **Accessibility** - Proper ARIA labels and semantic HTML  
+✅ **Clean UX** - Multiple ways to clear filters (× buttons, badges, "Clear All")
+
+---
+
+### **7. Testing**
+
+Both applications are now running:
+- **Server:** http://localhost:5132
+- **Client:** http://localhost:5019
+
+**Try these scenarios:**
+1. Select "Laptops" category - see only laptop products
+2. Search "Dell" with "Laptops" selected - see only Dell laptops
+3. Click × on category dropdown - filter clears
+4. Click on category badge × - filter clears
+5. Apply both filters, click "Clear All Filters" - everything resets
+6. Navigate away and back - your category selection is remembered
+
+---
+
+### **8. Code Quality**
+
+✅ Comprehensive XML documentation on all new methods  
+✅ Consistent error handling patterns  
+✅ Follows existing code conventions  
+✅ No breaking changes to existing functionality  
+✅ Proper async/await usage throughout  
+✅ Clean separation of concerns (State → Service → API)
+
+---
+
+**The implementation is complete and ready to use!** 🎉
+
+Visit http://localhost:5019 to see the category filtering in action!
+
+Made changes.

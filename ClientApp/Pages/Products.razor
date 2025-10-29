@@ -29,8 +29,9 @@
         </button>
     </div>
 
-    <!-- Search Bar -->
+    <!-- Search and Filter Bar -->
     <div class="row mb-3">
+        <!-- Search by Name -->
         <div class="col-md-6 col-lg-4">
             <div class="input-group">
                 <span class="input-group-text">
@@ -50,7 +51,60 @@
                 }
             </div>
         </div>
+
+        <!-- Filter by Category -->
+        <div class="col-md-6 col-lg-4">
+            <div class="input-group">
+                <span class="input-group-text">
+                    🏷️
+                </span>
+                <select class="form-select" 
+                        value="@selectedCategoryId" 
+                        @onchange="OnCategoryChanged"
+                        aria-label="Filter by category">
+                    <option value="">Show All Categories</option>
+                    @if (categories != null)
+                    {
+                        @foreach (var category in categories)
+                        {
+                            <option value="@category.Id">@category.Name</option>
+                        }
+                    }
+                </select>
+                @if (StateService.CategoryId.HasValue)
+                {
+                    <button class="btn btn-outline-secondary" type="button" @onclick="ClearCategoryFilter" title="Clear category filter">
+                        ×
+                    </button>
+                }
+            </div>
+        </div>
     </div>
+
+    <!-- Active Filter Badges -->
+    @if (!string.IsNullOrWhiteSpace(StateService.SearchTerm) || StateService.CategoryId.HasValue)
+    {
+        <div class="mb-3">
+            <span class="text-muted me-2">Active Filters:</span>
+            @if (!string.IsNullOrWhiteSpace(StateService.SearchTerm))
+            {
+                <span class="badge bg-primary me-2">
+                    Search: @StateService.SearchTerm
+                    <button type="button" class="btn-close btn-close-white ms-1" 
+                            style="font-size: 0.6rem;" @onclick="ClearSearch" aria-label="Clear search"></button>
+                </span>
+            }
+            @if (StateService.CategoryId.HasValue && categories != null)
+            {
+                var categoryName = categories.FirstOrDefault(c => c.Id == StateService.CategoryId.Value)?.Name;
+                <span class="badge bg-secondary me-2">
+                    Category: @categoryName
+                    <button type="button" class="btn-close btn-close-white ms-1" 
+                            style="font-size: 0.6rem;" @onclick="ClearCategoryFilter" aria-label="Clear category"></button>
+                </span>
+            }
+        </div>
+    }
 
     <!-- Refresh Confirmation Modal -->
     @if (showRefreshModal)
@@ -181,19 +235,32 @@
     }
     else
     {
-        @if (!string.IsNullOrWhiteSpace(StateService.SearchTerm))
+        @if (!string.IsNullOrWhiteSpace(StateService.SearchTerm) || StateService.CategoryId.HasValue)
         {
             <div class="alert alert-warning">
                 <h5 class="alert-heading">
                     🔍 No Results Found
                 </h5>
                 <p class="mb-2">
-                    No products match your search for <strong>"@StateService.SearchTerm"</strong>
+                    No products match your filters:
+                    @if (!string.IsNullOrWhiteSpace(StateService.SearchTerm))
+                    {
+                        <span>Search: <strong>"@StateService.SearchTerm"</strong></span>
+                    }
+                    @if (StateService.CategoryId.HasValue && categories != null)
+                    {
+                        var categoryName = categories.FirstOrDefault(c => c.Id == StateService.CategoryId.Value)?.Name;
+                        @if (!string.IsNullOrWhiteSpace(StateService.SearchTerm)) 
+                        { 
+                            <span> | </span> 
+                        }
+                        <span>Category: <strong>@categoryName</strong></span>
+                    }
                 </p>
                 <hr />
                 <p class="mb-0">
-                    <button class="btn btn-sm btn-outline-secondary" @onclick="ClearSearch">
-                        × Clear Search
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="ClearAllFilters">
+                        × Clear All Filters
                     </button>
                     to see all products
                 </p>
@@ -210,17 +277,25 @@
 
 @code {
     private PaginatedList<Product>? products;
+    private Category[]? categories;
     private bool isLoading = true;
     private bool isRefreshing = false;
     private bool showRefreshModal = false;
     private string errorMessage = string.Empty;
     private string searchQuery = string.Empty;
+    private string selectedCategoryId = string.Empty;
     private Timer? searchDebounceTimer;
 
     protected override async Task OnInitializedAsync()
     {
-        // Initialize search query from state
+        // Initialize from state
         searchQuery = StateService.SearchTerm;
+        selectedCategoryId = StateService.CategoryId?.ToString() ?? string.Empty;
+        
+        // Load categories for dropdown
+        await LoadCategoriesAsync();
+        
+        // Load products
         await LoadProductsAsync();
     }
 
@@ -230,7 +305,22 @@
     }
 
     /// <summary>
-    /// Loads products from the server with current pagination settings
+    /// Loads available categories from the server
+    /// </summary>
+    private async Task LoadCategoriesAsync()
+    {
+        try
+        {
+            categories = await ProductService.GetCategoriesAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Unable to load categories: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Loads products from the server with current pagination and filter settings
     /// </summary>
     private async Task LoadProductsAsync()
     {
@@ -241,7 +331,8 @@
             products = await ProductService.GetProductsAsync(
                 pageNumber: StateService.PageNumber, 
                 pageSize: StateService.PageSize,
-                searchTerm: StateService.SearchTerm);
+                searchTerm: StateService.SearchTerm,
+                categoryId: StateService.CategoryId);
         }
         catch (HttpRequestException)
         {
@@ -415,6 +506,44 @@
     {
         searchQuery = string.Empty;
         StateService.SetSearchTerm(string.Empty);
+        await LoadProductsAsync();
+    }
+
+    /// <summary>
+    /// Handles category filter change
+    /// </summary>
+    private async Task OnCategoryChanged(ChangeEventArgs e)
+    {
+        selectedCategoryId = e.Value?.ToString() ?? string.Empty;
+        
+        // Parse category ID (empty string = null = show all)
+        int? categoryId = string.IsNullOrEmpty(selectedCategoryId) 
+            ? null 
+            : int.Parse(selectedCategoryId);
+        
+        StateService.SetCategoryId(categoryId);
+        await LoadProductsAsync();
+    }
+
+    /// <summary>
+    /// Clears the category filter and reloads all products
+    /// </summary>
+    private async Task ClearCategoryFilter()
+    {
+        selectedCategoryId = string.Empty;
+        StateService.SetCategoryId(null);
+        await LoadProductsAsync();
+    }
+
+    /// <summary>
+    /// Clears all filters (search and category) and reloads all products
+    /// </summary>
+    private async Task ClearAllFilters()
+    {
+        searchQuery = string.Empty;
+        selectedCategoryId = string.Empty;
+        StateService.SetSearchTerm(string.Empty);
+        StateService.SetCategoryId(null);
         await LoadProductsAsync();
     }
 

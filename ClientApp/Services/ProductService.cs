@@ -33,20 +33,31 @@ public class ProductService
     /// <param name="pageNumber">Page number (1-based)</param>
     /// <param name="pageSize">Number of items per page</param>
     /// <param name="searchTerm">Optional search term to filter products by name</param>
+    /// <param name="categoryId">Optional category ID to filter products by category</param>
     /// <returns>Paginated list of products</returns>
     /// <exception cref="HttpRequestException">Thrown when API request fails</exception>
-    public async Task<PaginatedList<Product>> GetProductsAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null)
+    public async Task<PaginatedList<Product>> GetProductsAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null, int? categoryId = null)
     {
         try
         {
-            var url = $"/api/products?pageNumber={pageNumber}&pageSize={pageSize}";
-            
+            var queryParams = new List<string>
+            {
+                $"pageNumber={pageNumber}",
+                $"pageSize={pageSize}"
+            };
+
             if (!string.IsNullOrWhiteSpace(searchTerm))
             {
-                url += $"&searchTerm={Uri.EscapeDataString(searchTerm)}";
+                queryParams.Add($"searchTerm={Uri.EscapeDataString(searchTerm)}");
             }
-            
-            var response = await _httpClient.GetFromJsonAsync<PaginatedList<Product>>(url);
+
+            if (categoryId.HasValue)
+            {
+                queryParams.Add($"categoryId={categoryId.Value}");
+            }
+
+            var queryString = string.Join("&", queryParams);
+            var response = await _httpClient.GetFromJsonAsync<PaginatedList<Product>>($"/api/products?{queryString}");
             return response ?? new PaginatedList<Product>();
         }
         catch (HttpRequestException ex)

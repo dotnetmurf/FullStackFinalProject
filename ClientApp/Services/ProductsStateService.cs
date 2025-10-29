@@ -34,6 +34,14 @@ public class ProductsStateService
     public string SearchTerm { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the selected category ID for filtering products
+    /// </summary>
+    /// <remarks>
+    /// Default is null (no category filter - show all categories)
+    /// </remarks>
+    public int? CategoryId { get; set; } = null;
+
+    /// <summary>
     /// Event that fires when the state changes
     /// </summary>
     public event Action? OnChange;
@@ -67,6 +75,17 @@ public class ProductsStateService
     {
         SearchTerm = searchTerm ?? string.Empty;
         PageNumber = 1; // Reset to page 1 when search changes
+        NotifyStateChanged();
+    }
+
+    /// <summary>
+    /// Updates the selected category and notifies subscribers
+    /// </summary>
+    /// <param name="categoryId">Selected category ID, or null for "Show All"</param>
+    public void SetCategoryId(int? categoryId)
+    {
+        CategoryId = categoryId;
+        PageNumber = 1; // Reset to page 1 when filter changes
         NotifyStateChanged();
     }
 

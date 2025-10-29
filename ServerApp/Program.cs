@@ -106,11 +106,12 @@ PaginatedList<Product> GetEmptyPaginatedList() => new()
 // GET /api/products - Retrieves all products with caching and pagination
 // - Uses memory cache with 5-minute expiration
 // - Implements performance monitoring
-// - Supports optional search by product name
+// - Supports optional search by product name and category filtering
 // Returns paginated list of products with categories
 app.MapGet("/api/products", async (
     [AsParameters] PaginationParams pagination,
     string? searchTerm,
+    int? categoryId,
     HttpContext context,
     IMemoryCache cache,
     ILogger<Program> logger) =>
@@ -120,7 +121,7 @@ app.MapGet("/api/products", async (
     var pageSize = pagination.PageSize <= 0 ? 10 : pagination.PageSize;
     var normalizedSearch = searchTerm?.Trim() ?? string.Empty;
     var sw = Stopwatch.StartNew();
-    var cacheKey = $"products_page{pageNumber}_size{pageSize}_search{normalizedSearch}";
+    var cacheKey = $"products_page{pageNumber}_size{pageSize}_search{normalizedSearch}_cat{categoryId}";
     
     try
     {
@@ -139,6 +140,12 @@ app.MapGet("/api/products", async (
         if (!string.IsNullOrWhiteSpace(normalizedSearch))
         {
             query = query.Where(p => EF.Functions.Like(p.Name, $"%{normalizedSearch}%"));
+        }
+
+        // Apply category filter if provided
+        if (categoryId.HasValue)
+        {
+            query = query.Where(p => p.CategoryId == categoryId.Value);
         }
 
         // Apply sorting
