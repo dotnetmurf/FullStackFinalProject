@@ -147,12 +147,13 @@
                 OnDismiss="() => currentError = null" 
                 OnRetry="RetryLastOperation" />
 
-    @if (isLoading)
+    @if (!string.IsNullOrEmpty(loadingMessage))
     {
         <div class="text-center">
             <div class="spinner-border" role="status">
-                <span class="visually-hidden">Loading...</span>
+                <span class="visually-hidden">@loadingMessage</span>
             </div>
+            <p class="mt-2 text-muted">@loadingMessage</p>
         </div>
     }
     else if (products != null && products.Items.Any())
@@ -276,7 +277,7 @@
 @code {
     private PaginatedList<Product>? products;
     private Category[]? categories;
-    private bool isLoading = true;
+    private string loadingMessage = string.Empty;
     private bool isRefreshing = false;
     private bool showRefreshModal = false;
     private UserError? currentError;
@@ -287,6 +288,8 @@
 
     protected override async Task OnInitializedAsync()
     {
+        loadingMessage = "Initializing...";
+        
         // Initialize from state
         searchQuery = StateService.SearchTerm;
         selectedCategoryId = StateService.CategoryId?.ToString() ?? string.Empty;
@@ -329,7 +332,8 @@
         
         try
         {
-            isLoading = true;
+            // Set context-aware loading message
+            loadingMessage = GetLoadingMessage();
             currentError = null;
             products = await ProductService.GetProductsAsync(
                 pageNumber: StateService.PageNumber, 
@@ -343,7 +347,7 @@
         }
         finally
         {
-            isLoading = false;
+            loadingMessage = string.Empty;
         }
     }
 
@@ -452,6 +456,7 @@
         try
         {
             isRefreshing = true;
+            loadingMessage = "Refreshing sample data...";
             currentError = null;
             
             // Call the API to refresh sample data
@@ -468,6 +473,7 @@
         finally
         {
             isRefreshing = false;
+            loadingMessage = string.Empty;
         }
     }
 
@@ -542,6 +548,34 @@
         StateService.SetSearchTerm(string.Empty);
         StateService.SetCategoryId(null);
         await LoadProductsAsync();
+    }
+
+    /// <summary>
+    /// Gets context-aware loading message based on active filters
+    /// </summary>
+    private string GetLoadingMessage()
+    {
+        var hasSearch = !string.IsNullOrWhiteSpace(StateService.SearchTerm);
+        var hasCategory = StateService.CategoryId.HasValue;
+        
+        if (hasSearch && hasCategory && StateService.CategoryId.HasValue)
+        {
+            var categoryName = categories?.FirstOrDefault(c => c.Id == StateService.CategoryId.Value)?.Name ?? "category";
+            return $"Searching '{StateService.SearchTerm}' in {categoryName}...";
+        }
+        else if (hasSearch)
+        {
+            return $"Searching for '{StateService.SearchTerm}'...";
+        }
+        else if (hasCategory && StateService.CategoryId.HasValue)
+        {
+            var categoryName = categories?.FirstOrDefault(c => c.Id == StateService.CategoryId.Value)?.Name ?? "category";
+            return $"Loading {categoryName} products...";
+        }
+        else
+        {
+            return "Loading products...";
+        }
     }
 
     /// <summary>
