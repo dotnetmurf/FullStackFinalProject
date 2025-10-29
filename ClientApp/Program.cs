@@ -22,4 +22,7 @@ builder.Services.AddScoped<ProductService>();
 // Register ProductsStateService as Singleton to maintain state across navigation
 builder.Services.AddSingleton<ProductsStateService>();
 
+// Register ErrorHandlerService for centralized error handling
+builder.Services.AddScoped<ErrorHandlerService>();
+
 await builder.Build().RunAsync();
