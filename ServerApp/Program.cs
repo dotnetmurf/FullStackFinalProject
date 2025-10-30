@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.OpenApi.Models;
+using System.IO.Compression;
 using System.Reflection;
 using ServerApp.Data;
 using ServerApp.Endpoints;
@@ -62,6 +64,38 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod());
 });
 
+// Response Compression - Brotli (preferred) and Gzip fallback
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true; // Enable compression over HTTPS
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    
+    // MIME types to compress (JSON, XML, text)
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
+    {
+        "application/json",           // API responses
+        "application/xml",            // XML responses
+        "text/plain",                 // Text responses
+        "text/css",                   // CSS files
+        "application/javascript",     // JavaScript files
+        "text/html",                  // HTML files
+        "image/svg+xml"              // SVG images
+    });
+});
+
+// Configure Brotli compression level (Fastest = good balance of speed and compression)
+builder.Services.Configure<BrotliCompressionProviderOptions>(options =>
+{
+    options.Level = CompressionLevel.Fastest;
+});
+
+// Configure Gzip compression level (Fastest = good balance of speed and compression)
+builder.Services.Configure<GzipCompressionProviderOptions>(options =>
+{
+    options.Level = CompressionLevel.Fastest;
+});
+
 // ============================================
 // SECTION 3: Build Application
 // ============================================
@@ -77,6 +111,9 @@ await DbInitializerService.InitializeAsync(app.Services);
 
 // Enable CORS
 app.UseCors();
+
+// Enable response compression (must be before UseStaticFiles and endpoints)
+app.UseResponseCompression();
 
 // Enable performance monitoring middleware
 app.UsePerformanceMonitoring();
