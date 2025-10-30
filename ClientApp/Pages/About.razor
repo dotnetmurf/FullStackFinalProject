@@ -1,7 +1,320 @@
-﻿@page "/about"
+@page "/about"
 
-<PageTitle>About</PageTitle>
+<PageTitle>About - InventoryHub</PageTitle>
 
-<h1>Hello, About!</h1>
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="text-center mb-5">
+                <h1 class="display-4 mb-3">📦 InventoryHub</h1>
+                <p class="lead text-muted">Product Inventory Management System</p>
+                <p class="text-muted">A modern full-stack web application built with .NET 9.0</p>
+            </div>
+        </div>
+    </div>
 
-About your new app.
+    <!-- Features Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="mb-4">🚀 Key Features</h2>
+            <div class="row g-4">
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 border-primary">
+                        <div class="card-body">
+                            <h5 class="card-title">🛠️ Product Management</h5>
+                            <p class="card-text">Complete CRUD operations for managing your product inventory with ease.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 border-primary">
+                        <div class="card-body">
+                            <h5 class="card-title">🔍 Smart Search</h5>
+                            <p class="card-text">Real-time search functionality to quickly find products by name.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 border-primary">
+                        <div class="card-body">
+                            <h5 class="card-title">🏷️ Category Filtering</h5>
+                            <p class="card-text">Filter products by category for organized inventory management.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 border-primary">
+                        <div class="card-body">
+                            <h5 class="card-title">📄 Pagination</h5>
+                            <p class="card-text">Efficient data loading with customizable page sizes for better performance.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 border-primary">
+                        <div class="card-body">
+                            <h5 class="card-title">⚡ Performance Monitoring</h5>
+                            <p class="card-text">Built-in request timing and comprehensive logging for all operations.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 border-primary">
+                        <div class="card-body">
+                            <h5 class="card-title">💾 Response Caching</h5>
+                            <p class="card-text">Intelligent caching with automatic invalidation for optimal performance.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Architecture Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="mb-4">🏗️ Technology Stack</h2>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card bg-light h-100">
+                        <div class="card-body">
+                            <h5 class="card-title text-primary">Backend (ServerApp)</h5>
+                            <ul class="list-unstyled">
+                                <li class="mb-2">✅ ASP.NET Core 9.0 Minimal API</li>
+                                <li class="mb-2">✅ Entity Framework Core (In-Memory)</li>
+                                <li class="mb-2">✅ Custom Memory Caching</li>
+                                <li class="mb-2">✅ Swagger/OpenAPI Documentation</li>
+                                <li class="mb-2">✅ Response Compression (Brotli/Gzip)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-light h-100">
+                        <div class="card-body">
+                            <h5 class="card-title text-primary">Frontend (ClientApp)</h5>
+                            <ul class="list-unstyled">
+                                <li class="mb-2">✅ Blazor WebAssembly</li>
+                                <li class="mb-2">✅ Bootstrap 5 Responsive UI</li>
+                                <li class="mb-2">✅ Component-Based Architecture</li>
+                                <li class="mb-2">✅ Centralized State Management</li>
+                                <li class="mb-2">✅ Client & Server-Side Validation</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="mb-4">🗄️ Database Information</h2>
+            <div class="alert alert-info">
+                <h5 class="alert-heading">In-Memory Database</h5>
+                <p class="mb-2">This application uses an <strong>in-memory database</strong> for development and testing purposes:</p>
+                <ul class="mb-2">
+                    <li>Automatically seeds with <strong>36 sample products</strong> on startup</li>
+                    <li>Includes <strong>7 categories</strong>: Electronics, Accessories, Gaming, Networking, Storage, Software & Photography</li>
+                    <li>Data resets when ServerApp restarts</li>
+                    <li>Can be refreshed via the "Refresh Sample Data" button</li>
+                </ul>
+                <p class="mb-0"><em>Note: No data persists between application restarts.</em></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Endpoints Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="mb-4">📚 API Endpoints</h2>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Method</th>
+                            <th>Endpoint</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge bg-success">GET</span></td>
+                            <td><code>/api/products</code></td>
+                            <td>Get paginated products with optional search and category filter</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-success">GET</span></td>
+                            <td><code>/api/product/{id}</code></td>
+                            <td>Get a single product by ID</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-primary">POST</span></td>
+                            <td><code>/api/product</code></td>
+                            <td>Create a new product</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-warning">PUT</span></td>
+                            <td><code>/api/product/{id}</code></td>
+                            <td>Update an existing product</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-danger">DELETE</span></td>
+                            <td><code>/api/product/{id}</code></td>
+                            <td>Delete a product</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-primary">POST</span></td>
+                            <td><code>/api/products/refresh</code></td>
+                            <td>Refresh sample data</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge bg-success">GET</span></td>
+                            <td><code>/api/categories</code></td>
+                            <td>Get all categories</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="alert alert-secondary">
+                <strong>💡 Tip:</strong> Visit the Swagger documentation at 
+                <a href="http://localhost:5132" target="_blank" class="alert-link">http://localhost:5132</a> 
+                (when ServerApp is running in Development mode) to test API endpoints interactively.
+            </div>
+        </div>
+    </div>
+
+    <!-- Key Features Explained -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="mb-4">🔍 Key Features Explained</h2>
+            <div class="accordion" id="featuresAccordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne">
+                            Performance Monitoring
+                        </button>
+                    </h2>
+                    <div id="collapseOne" class="accordion-collapse collapse show" data-bs-parent="#featuresAccordion">
+                        <div class="accordion-body">
+                            Every API request is automatically timed and logged. Example:
+                            <br>
+                            <code>GET /api/products responded with 200 in 45 ms</code>
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo">
+                            Intelligent Caching
+                        </button>
+                    </h2>
+                    <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#featuresAccordion">
+                        <div class="accordion-body">
+                            <ul>
+                                <li>Cache Duration: 5 minutes absolute, 2 minutes sliding</li>
+                                <li>Automatic invalidation after create, update, or delete operations</li>
+                                <li>Cache key format: <code>products_page{N}_size{N}_search{term}_cat{id}</code></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree">
+                            State Persistence
+                        </button>
+                    </h2>
+                    <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#featuresAccordion">
+                        <div class="accordion-body">
+                            The <code>ProductsStateService</code> maintains user preferences across navigation:
+                            <ul>
+                                <li>Current page number</li>
+                                <li>Selected page size</li>
+                                <li>Active search term</li>
+                                <li>Category filter</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseFour">
+                            Error Handling
+                        </button>
+                    </h2>
+                    <div id="collapseFour" class="accordion-collapse collapse" data-bs-parent="#featuresAccordion">
+                        <div class="accordion-body">
+                            Three-tier error handling approach:
+                            <ol>
+                                <li>Services throw specific exceptions (<code>ProductServiceException</code>)</li>
+                                <li><code>ErrorHandlerService</code> translates to user-friendly messages</li>
+                                <li>UI components display with retry options</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Learning Project Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="mb-4">📖 Learning Project</h2>
+            <div class="card border-info">
+                <div class="card-body">
+                    <p class="card-text">This project is part of the <strong>Microsoft Full-Stack Developer Professional Certificate</strong> program and demonstrates:</p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul>
+                                <li>Full-stack development with .NET</li>
+                                <li>RESTful API design</li>
+                                <li>Blazor WebAssembly SPA architecture</li>
+                                <li>Entity Framework Core</li>
+                                <li>Dependency injection</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul>
+                                <li>Middleware implementation</li>
+                                <li>Response caching strategies</li>
+                                <li>Error handling patterns</li>
+                                <li>Component-based UI development</li>
+                                <li>State management</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Developer Notes -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h2 class="mb-4">👨‍💻 Developer Notes</h2>
+            <div class="alert alert-warning">
+                <ul class="mb-0">
+                    <li>The application uses an <strong>in-memory database</strong> - no data persists between restarts</li>
+                    <li><strong>No authentication</strong> is implemented (intentional for learning purposes)</li>
+                    <li>Models are duplicated between Client and Server - keep them synchronized</li>
+                    <li><code>ProductsStateService</code> must be registered as <strong>Singleton</strong>, not Scoped</li>
+                    <li>Cache invalidation happens automatically after mutations</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="row">
+        <div class="col-12 text-center">
+            <hr>
+            <p class="text-muted">
+                Built with ❤️ using .NET 9.0 | 
+                <a href="https://github.com/dotnetmurf/FullStackFinalProject" target="_blank">View on GitHub</a>
+            </p>
+        </div>
+    </div>
+</div>
