@@ -1,0 +1,469 @@
+
+
+**Recommended Order:**
+1. ✅ Extract CacheService (30 min)
+2. ✅ Extract ProductEndpoints (45 min)
+3. ✅ Create PerformanceMiddleware (30 min)
+4. ✅ Clean Program.cs (15 min)
+5. ✅ **Then** add optimizations (1 hour)
+
+**Total**: 3-4 hours for a production-ready, maintainable codebase
+
+Would you like me to implement the refactoring first?
+
+dotnetmurf
+Please provide me with a detailed step-by-step plan for the Extract CacheService refactoring.
+
+Copilot
+# 📋 Detailed Step-by-Step Plan: Extract CacheService Refactoring
+
+## Overview
+**Goal**: Extract cache management logic from Program.cs into a dedicated, testable CacheService  
+**Time Estimate**: 30 minutes  
+**Files Modified**: 2 (Program.cs, new CacheService.cs)  
+**Lines Reduced in Program.cs**: ~50 lines  
+
+---
+
+## 🎯 Phase 1: Create CacheService (10 minutes)
+
+### Step 1.1: Create the CacheService Class File
+**Action**: Create `ServerApp/Services/CacheService.cs`
+
+**File Structure**:
+```
+ServerApp/
+├── Services/
+│   ├── CacheService.cs          ← NEW FILE
+│   ├── DbInitializerService.cs
+│   ├── SeedingService.cs
+│   └── ValidationService.cs
+```
+
+### Step 1.2: Define CacheService Interface and Implementation
+
+**Complete Code for CacheService.cs**:
+```csharp
+using Microsoft.Extensions.Caching.Memory;
+using System.Collections.Concurrent;
+
+namespace ServerApp.Services;
+
+/// <summary>
+/// Centralized cache management service for product data
+/// </summary>
+/// <remarks>
+/// Manages in-memory caching with automatic key tracking and invalidation.
+/// Uses a registry pattern to track all cache keys for efficient bulk invalidation.
+/// Cache duration: 5 minutes absolute, 2 minutes sliding expiration.
+/// </remarks>
+public class CacheService
+{
+    private readonly IMemoryCache _cache;
+    private readonly ILogger<CacheService> _logger;
+    private readonly ConcurrentBag<string> _productCacheKeys = new();
+    
+    // Cache configuration constants
+    private static readonly TimeSpan AbsoluteCacheDuration = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan SlidingCacheDuration = TimeSpan.FromMinutes(2);
+
+    /// <summary>
+    /// Initializes a new instance of the CacheService
+    /// </summary>
+    /// <param name="cache">Memory cache instance</param>
+    /// <param name="logger">Logger for cache operations</param>
+    public CacheService(IMemoryCache cache, ILogger<CacheService> logger)
+    {
+        _cache = cache ?? throw new ArgumentNullException(nameof(cache));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    /// <summary>
+    /// Builds a consistent cache key for product queries
+    /// </summary>
+    /// <param name="pageNumber">Page number for pagination</param>
+    /// <param name="pageSize">Number of items per page</param>
+    /// <param name="searchTerm">Optional search term for filtering</param>
+    /// <param name="categoryId">Optional category ID for filtering</param>
+    /// <returns>Formatted cache key string</returns>
+    public string BuildProductCacheKey(int pageNumber, int pageSize, string? searchTerm, int? categoryId)
+    {
+        var normalizedSearch = searchTerm?.Trim() ?? string.Empty;
+        return $"products_page{pageNumber}_size{pageSize}_search{normalizedSearch}_cat{categoryId}";
+    }
+
+    /// <summary>
+    /// Attempts to get a cached value
+    /// </summary>
+    /// <typeparam name="T">Type of cached value</typeparam>
+    /// <param name="key">Cache key</param>
+    /// <param name="value">Retrieved value if found</param>
+    /// <returns>True if value was found in cache, false otherwise</returns>
+    public bool TryGetValue<T>(string key, out T? value)
+    {
+        var found = _cache.TryGetValue(key, out value);
+        
+        if (found)
+        {
+            _logger.LogDebug("Cache HIT for key: {CacheKey}", key);
+        }
+        else
+        {
+            _logger.LogDebug("Cache MISS for key: {CacheKey}", key);
+        }
+        
+        return found;
+    }
+
+    /// <summary>
+    /// Sets a value in cache with product-specific expiration settings
+    /// </summary>
+    /// <typeparam name="T">Type of value to cache</typeparam>
+    /// <param name="key">Cache key</param>
+    /// <param name="value">Value to cache</param>
+    public void SetProductCache<T>(string key, T value)
+    {
+        var cacheOptions = new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = AbsoluteCacheDuration,
+            SlidingExpiration = SlidingCacheDuration
+        };
+
+        _productCacheKeys.Add(key);
+        _cache.Set(key, value, cacheOptions);
+        
+        _logger.LogDebug("Cached value with key: {CacheKey} (Total product keys: {KeyCount})", 
+            key, _productCacheKeys.Count);
+    }
+
+    /// <summary>
+    /// Gets a cached value or creates it using the provided factory function
+    /// </summary>
+    /// <typeparam name="T">Type of value to retrieve or create</typeparam>
+    /// <param name="key">Cache key</param>
+    /// <param name="factory">Function to create value if not cached</param>
+    /// <returns>Cached or newly created value</returns>
+    public async Task<T> GetOrCreateProductCacheAsync<T>(string key, Func<Task<T>> factory)
+    {
+        if (TryGetValue<T>(key, out var cachedValue) && cachedValue != null)
+        {
+            return cachedValue;
+        }
+
+        _logger.LogInformation("Cache miss - executing factory function for key: {CacheKey}", key);
+        var value = await factory();
+        SetProductCache(key, value);
+        
+        return value;
+    }
+
+    /// <summary>
+    /// Invalidates all product-related cache entries
+    /// </summary>
+    /// <remarks>
+    /// Removes all cached product data and clears the key registry.
+    /// Should be called after any product modifications (create, update, delete).
+    /// </remarks>
+    public void InvalidateProductCaches()
+    {
+        var keysToRemove = _productCacheKeys.ToList();
+        var removedCount = 0;
+
+        foreach (var key in keysToRemove)
+        {
+            _cache.Remove(key);
+            removedCount++;
+        }
+
+        _productCacheKeys.Clear();
+        
+        _logger.LogInformation("Invalidated {Count} product cache entries", removedCount);
+    }
+
+    /// <summary>
+    /// Gets the current count of tracked product cache keys
+    /// </summary>
+    /// <returns>Number of active product cache keys</returns>
+    public int GetProductCacheKeyCount()
+    {
+        return _productCacheKeys.Count;
+    }
+}
+```
+
+**Key Features**:
+- ✅ Centralized cache key generation
+- ✅ Automatic key tracking with ConcurrentBag
+- ✅ Consistent cache expiration settings
+- ✅ Helper method `GetOrCreateProductCacheAsync<T>` for common pattern
+- ✅ Comprehensive logging for debugging
+- ✅ Null safety and validation
+
+---
+
+## 🔧 Phase 2: Update Program.cs (15 minutes)
+
+### Step 2.1: Register CacheService in Dependency Injection
+
+**Location**: After `builder.Services.AddMemoryCache();` (around line 71)
+
+**Find**:
+```csharp
+// Add in-memory caching service for performance optimization
+// Cache duration: 5 minutes absolute, 2 minutes sliding
+builder.Services.AddMemoryCache();
+```
+
+**Replace with**:
+```csharp
+// Add in-memory caching service for performance optimization
+// Cache duration: 5 minutes absolute, 2 minutes sliding
+builder.Services.AddMemoryCache();
+
+// Register CacheService for centralized cache management
+builder.Services.AddSingleton<CacheService>();
+```
+
+---
+
+### Step 2.2: Remove Global productCacheKeys Variable
+
+**Location**: Around line 87
+
+**Find and DELETE**:
+```csharp
+// Cache key registry for tracking all product cache keys
+// This allows us to invalidate all product-related caches without guessing keys
+var productCacheKeys = new ConcurrentBag<string>();
+```
+
+---
+
+### Step 2.3: Update GET /api/products Endpoint
+
+**Location**: Around line 116-200
+
+**Current Pattern**:
+```csharp
+var cacheKey = $"products_page{pageNumber}_size{pageSize}_search{normalizedSearch}_cat{categoryId}";
+
+if (cache.TryGetValue(cacheKey, out PaginatedList<Product>? cachedProducts))
+{
+    // ... return cached
+}
+
+// ... build paginatedList ...
+
+var cacheOptions = new MemoryCacheEntryOptions { /* ... */ };
+productCacheKeys.Add(cacheKey);
+cache.Set(cacheKey, paginatedList, cacheOptions);
+```
+
+**Replace with**:
+```csharp
+// Use CacheService instead of direct IMemoryCache
+var cacheService = context.RequestServices.GetRequiredService<CacheService>();
+var cacheKey = cacheService.BuildProductCacheKey(pageNumber, pageSize, normalizedSearch, categoryId);
+
+if (cacheService.TryGetValue(cacheKey, out PaginatedList<Product>? cachedProducts))
+{
+    sw.Stop();
+    logger.LogInformation("GET /api/products responded in {ElapsedMs} ms (CACHE HIT)", sw.ElapsedMilliseconds);
+    return Results.Ok(cachedProducts ?? GetEmptyPaginatedList());
+}
+
+logger.LogInformation("Cache miss - retrieving products from database");
+// ... existing database query logic stays the same ...
+
+// Cache the result using CacheService
+cacheService.SetProductCache(cacheKey, paginatedList);
+```
+
+**OR use the GetOrCreateAsync pattern (cleaner)**:
+```csharp
+var cacheService = context.RequestServices.GetRequiredService<CacheService>();
+var cacheKey = cacheService.BuildProductCacheKey(pageNumber, pageSize, normalizedSearch, categoryId);
+
+var paginatedList = await cacheService.GetOrCreateProductCacheAsync(cacheKey, async () =>
+{
+    logger.LogInformation("Cache miss - retrieving products from database");
+    var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
+    var query = dbContext.Products.AsQueryable();
+
+    // Apply search filter
+    if (!string.IsNullOrWhiteSpace(normalizedSearch))
+    {
+        query = query.Where(p => EF.Functions.Like(p.Name, $"%{normalizedSearch}%"));
+    }
+
+    // Apply category filter
+    if (categoryId.HasValue)
+    {
+        query = query.Where(p => p.CategoryId == categoryId.Value);
+    }
+
+    query = query.OrderBy(p => p.Name);
+    var totalCount = await query.CountAsync();
+    var products = await query
+        .Skip((pageNumber - 1) * pageSize)
+        .Take(pageSize)
+        .ToListAsync();
+
+    return new PaginatedList<Product>
+    {
+        Items = products,
+        PageNumber = pageNumber,
+        PageSize = pageSize,
+        TotalCount = totalCount,
+        TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+    };
+});
+
+sw.Stop();
+logger.LogInformation("GET /api/products responded in {ElapsedMs} ms", sw.ElapsedMilliseconds);
+return Results.Ok(paginatedList);
+```
+
+---
+
+### Step 2.4: Remove InvalidateProductCaches Local Function
+
+**Location**: Around line 276
+
+**Find and DELETE entire function**:
+```csharp
+void InvalidateProductCaches(IMemoryCache cache, ILogger<Program> logger, ConcurrentBag<string> cacheKeys)
+{
+    // ... entire function body ...
+}
+```
+
+---
+
+### Step 2.5: Update All InvalidateProductCaches Calls
+
+**Locations**: Lines 347, 411, 450, 489 (4 calls total)
+
+**Find** (all 4 occurrences):
+```csharp
+InvalidateProductCaches(cache, logger, productCacheKeys);
+```
+
+**Replace with**:
+```csharp
+var cacheService = context.RequestServices.GetRequiredService<CacheService>();
+cacheService.InvalidateProductCaches();
+```
+
+**Specific Locations**:
+1. **POST /api/product** (around line 347)
+2. **PUT /api/product/{id}** (around line 411)
+3. **DELETE /api/product/{id}** (around line 450)
+4. **POST /api/products/refresh** (around line 489)
+
+---
+
+## ✅ Phase 3: Build and Test (5 minutes)
+
+### Step 3.1: Build ServerApp
+```powershell
+cd ServerApp
+dotnet build
+```
+
+**Expected**: No errors, successful build
+
+---
+
+### Step 3.2: Run ServerApp
+```powershell
+dotnet run
+```
+
+**Expected**: 
+- Server starts successfully
+- No errors in console
+- "InventoryHub ServerApp starting up" message appears
+
+---
+
+### Step 3.3: Test Cache Behavior
+
+**Test 1: Cache HIT**
+1. Navigate to: `http://localhost:5132/api/products`
+2. Check logs: Should show "CACHE MISS" first time
+3. Refresh page
+4. Check logs: Should show "CACHE HIT"
+
+**Test 2: Cache Invalidation**
+1. POST new product: `http://localhost:5132/api/product`
+2. Check logs: Should show "Invalidated X product cache entries"
+3. GET products again
+4. Check logs: Should show "CACHE MISS" (cache was cleared)
+
+---
+
+## 📊 Expected Results
+
+### Before Refactoring:
+```
+Program.cs: 492 lines
+- Global productCacheKeys variable
+- InvalidateProductCaches local function
+- Cache logic scattered in endpoints
+- Hard to test
+```
+
+### After Refactoring:
+```
+Program.cs: ~440 lines (-52 lines)
+CacheService.cs: 150 lines (NEW)
+- Clean separation of concerns
+- Testable cache logic
+- Consistent cache behavior
+- Easy to extend
+```
+
+---
+
+## 🎯 Success Criteria Checklist
+
+- [ ] CacheService.cs created in ServerApp/Services/
+- [ ] CacheService registered in DI as Singleton
+- [ ] Global productCacheKeys variable removed
+- [ ] InvalidateProductCaches local function removed
+- [ ] GET /api/products uses CacheService
+- [ ] All 4 invalidation calls updated
+- [ ] ServerApp builds without errors
+- [ ] ServerApp runs successfully
+- [ ] Cache HIT/MISS working correctly
+- [ ] Cache invalidation working after POST/PUT/DELETE
+
+---
+
+## 🚀 Next Steps After This Refactoring
+
+Once CacheService is complete:
+1. Extract ProductEndpoints (45 min)
+2. Create PerformanceMiddleware (30 min)
+3. Clean up Program.cs (15 min)
+4. **Then** implement performance optimizations
+
+---
+
+## 💡 Pro Tips
+
+1. **Test incrementally**: Build after each step to catch errors early
+2. **Use CacheService.GetOrCreateProductCacheAsync<T>**: Cleaner than manual TryGetValue/Set
+3. **Keep logging**: Debug logging helps troubleshoot cache behavior
+4. **Singleton lifetime**: CacheService should be Singleton to maintain key registry across requests
+
+---
+
+Would you like me to implement this refactoring now?
+
+dotnetmurf
+Please execute your Detailed Step-by-Step Plan: Extract CacheService Refactoring.
+At Step 2.3: Update GET /api/products Endpoint, please use the GetOrCreateAsync pattern (cleaner).
+Location: Around line 116-200
+Please perform a dotnet build after each phase to catch any build errors as early as possible.
