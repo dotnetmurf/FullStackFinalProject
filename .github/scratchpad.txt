@@ -1,0 +1,2 @@
+
+Please provide a detailed step-by-step plan for implementing Add Response Compression (Brotli/Gzip).

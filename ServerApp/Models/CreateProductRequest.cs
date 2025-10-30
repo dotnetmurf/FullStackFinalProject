@@ -35,6 +35,13 @@ public class CreateProductRequest
     public int Stock { get; set; }
 
     /// <summary>
+    /// Foreign key reference to the category
+    /// </summary>
+    [Required(ErrorMessage = "Category ID is required")]
+    [Range(1, int.MaxValue, ErrorMessage = "Please select a valid category")]
+    public int CategoryId { get; set; }
+
+    /// <summary>
     /// Category information for the product
     /// </summary>
     [Required(ErrorMessage = "Category is required")]
@@ -45,6 +52,6 @@ public class CreateProductRequest
     /// </summary>
     public bool IsValid()
     {
-        return Category != null && Category.Id > 0;
+        return Category != null && Category.Id > 0 && CategoryId > 0;
     }
 }

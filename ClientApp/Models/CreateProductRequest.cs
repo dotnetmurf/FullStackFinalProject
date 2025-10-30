@@ -35,6 +35,12 @@ public class CreateProductRequest
     public int Stock { get; set; }
 
     /// <summary>
+    /// Foreign key reference to the category
+    /// </summary>
+    [Range(1, int.MaxValue, ErrorMessage = "Please select a category")]
+    public int CategoryId { get; set; }
+
+    /// <summary>
     /// Category information for the product
     /// </summary>
     [Required]
