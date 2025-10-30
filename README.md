@@ -2,7 +2,7 @@
 
 ## REFLECTION - How Copilot Assisted in the Full-Stack Development of InventoryHub
 
-GitHub Copilot played a central role in building and refining the InventoryHub application. Here’s how Copilot contributed across key areas:
+Microsoft/GitHub Copilot played a central role in building and refining the InventoryHub application. Here’s how Copilot contributed across key areas:
 
 ### 1. Generating Integration Code
 - **CRUD Operations:** Copilot provided step-by-step implementation plans for client-side CRUD pages and shared components, ensuring seamless communication with the backend API.
