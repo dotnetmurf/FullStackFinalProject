@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using ServerApp.Data;
 using ServerApp.Models;
 using ServerApp.Services;
-using System.Diagnostics;
 
 namespace ServerApp.Endpoints;
 
@@ -68,7 +67,6 @@ public static class ProductEndpoints
         string? searchTerm = null,
         int? categoryId = null)
     {
-        var sw = Stopwatch.StartNew();
         var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
 
         try
@@ -79,8 +77,8 @@ public static class ProductEndpoints
             if (pageSize < 1) pageSize = 10;
             if (pageSize > 100) pageSize = 100;
 
-            logger.LogInformation(
-                "GET /api/products - Page: {PageNumber}, Size: {PageSize}, Search: '{Search}', CategoryId: {CategoryId}",
+            logger.LogDebug(
+                "Retrieving products - Page: {PageNumber}, Size: {PageSize}, Search: '{Search}', CategoryId: {CategoryId}",
                 pageNumber, pageSize, normalizedSearch, categoryId);
 
             // Use CacheService for caching
@@ -122,14 +120,12 @@ public static class ProductEndpoints
                 };
             });
 
-            sw.Stop();
-            logger.LogInformation("GET /api/products responded in {ElapsedMs} ms", sw.ElapsedMilliseconds);
+            logger.LogDebug("Retrieved {Count} products from cache/database", paginatedList.TotalCount);
             return Results.Ok(paginatedList);
         }
         catch (Exception ex)
         {
-            sw.Stop();
-            logger.LogError(ex, "Error in GET /api/products after {ElapsedMs} ms", sw.ElapsedMilliseconds);
+            logger.LogError(ex, "Error retrieving products");
             return Results.Problem(
                 title: "Error retrieving products",
                 detail: ex.Message,
@@ -142,34 +138,27 @@ public static class ProductEndpoints
     /// </summary>
     private static async Task<IResult> GetProductById(HttpContext context, int id)
     {
-        var sw = Stopwatch.StartNew();
         var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
 
         try
         {
-            logger.LogInformation("GET /api/product/{Id}", id);
+            logger.LogDebug("Retrieving product {Id}", id);
 
             var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
             var product = await dbContext.Products.FindAsync(id);
 
-            sw.Stop();
-
             if (product == null)
             {
-                logger.LogWarning("GET /api/product/{Id} - Product not found after {ElapsedMs} ms", 
-                    id, sw.ElapsedMilliseconds);
+                logger.LogWarning("Product {Id} not found", id);
                 return Results.NotFound(new { message = $"Product with ID {id} not found" });
             }
 
-            logger.LogInformation("GET /api/product/{Id} responded in {ElapsedMs} ms", 
-                id, sw.ElapsedMilliseconds);
+            logger.LogDebug("Product {Id} retrieved successfully", id);
             return Results.Ok(product);
         }
         catch (Exception ex)
         {
-            sw.Stop();
-            logger.LogError(ex, "Error in GET /api/product/{Id} after {ElapsedMs} ms", 
-                id, sw.ElapsedMilliseconds);
+            logger.LogError(ex, "Error retrieving product {Id}", id);
             return Results.Problem(
                 title: "Error retrieving product",
                 detail: ex.Message,
@@ -182,12 +171,11 @@ public static class ProductEndpoints
     /// </summary>
     private static async Task<IResult> CreateProduct(HttpContext context, Product product)
     {
-        var sw = Stopwatch.StartNew();
         var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
 
         try
         {
-            logger.LogInformation("POST /api/product - Creating product: {ProductName}", product.Name);
+            logger.LogDebug("Creating product: {ProductName}", product.Name);
 
             var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
 
@@ -198,16 +186,13 @@ public static class ProductEndpoints
             var cacheService = context.RequestServices.GetRequiredService<CacheService>();
             cacheService.InvalidateProductCaches();
 
-            sw.Stop();
-            logger.LogInformation("POST /api/product - Product created with ID {ProductId} in {ElapsedMs} ms",
-                product.Id, sw.ElapsedMilliseconds);
+            logger.LogInformation("Product created with ID {ProductId}", product.Id);
 
             return Results.Created($"/api/product/{product.Id}", product);
         }
         catch (Exception ex)
         {
-            sw.Stop();
-            logger.LogError(ex, "Error in POST /api/product after {ElapsedMs} ms", sw.ElapsedMilliseconds);
+            logger.LogError(ex, "Error creating product");
             return Results.Problem(
                 title: "Error creating product",
                 detail: ex.Message,
@@ -220,21 +205,18 @@ public static class ProductEndpoints
     /// </summary>
     private static async Task<IResult> UpdateProduct(HttpContext context, int id, Product updatedProduct)
     {
-        var sw = Stopwatch.StartNew();
         var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
 
         try
         {
-            logger.LogInformation("PUT /api/product/{Id} - Updating product", id);
+            logger.LogDebug("Updating product {Id}", id);
 
             var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
             var existingProduct = await dbContext.Products.FindAsync(id);
 
             if (existingProduct == null)
             {
-                sw.Stop();
-                logger.LogWarning("PUT /api/product/{Id} - Product not found after {ElapsedMs} ms",
-                    id, sw.ElapsedMilliseconds);
+                logger.LogWarning("Product {Id} not found for update", id);
                 return Results.NotFound(new { message = $"Product with ID {id} not found" });
             }
 
@@ -252,17 +234,13 @@ public static class ProductEndpoints
             var cacheService = context.RequestServices.GetRequiredService<CacheService>();
             cacheService.InvalidateProductCaches();
 
-            sw.Stop();
-            logger.LogInformation("PUT /api/product/{Id} completed in {ElapsedMs} ms",
-                id, sw.ElapsedMilliseconds);
+            logger.LogInformation("Product {Id} updated successfully", id);
 
             return Results.Ok(existingProduct);
         }
         catch (Exception ex)
         {
-            sw.Stop();
-            logger.LogError(ex, "Error in PUT /api/product/{Id} after {ElapsedMs} ms",
-                id, sw.ElapsedMilliseconds);
+            logger.LogError(ex, "Error updating product {Id}", id);
             return Results.Problem(
                 title: "Error updating product",
                 detail: ex.Message,
@@ -275,21 +253,18 @@ public static class ProductEndpoints
     /// </summary>
     private static async Task<IResult> DeleteProduct(HttpContext context, int id)
     {
-        var sw = Stopwatch.StartNew();
         var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
 
         try
         {
-            logger.LogInformation("DELETE /api/product/{Id}", id);
+            logger.LogDebug("Deleting product {Id}", id);
 
             var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
             var product = await dbContext.Products.FindAsync(id);
 
             if (product == null)
             {
-                sw.Stop();
-                logger.LogWarning("DELETE /api/product/{Id} - Product not found after {ElapsedMs} ms",
-                    id, sw.ElapsedMilliseconds);
+                logger.LogWarning("Product {Id} not found for deletion", id);
                 return Results.NotFound(new { message = $"Product with ID {id} not found" });
             }
 
@@ -300,17 +275,13 @@ public static class ProductEndpoints
             var cacheService = context.RequestServices.GetRequiredService<CacheService>();
             cacheService.InvalidateProductCaches();
 
-            sw.Stop();
-            logger.LogInformation("DELETE /api/product/{Id} completed in {ElapsedMs} ms",
-                id, sw.ElapsedMilliseconds);
+            logger.LogInformation("Product {Id} deleted successfully", id);
 
             return Results.NoContent();
         }
         catch (Exception ex)
         {
-            sw.Stop();
-            logger.LogError(ex, "Error in DELETE /api/product/{Id} after {ElapsedMs} ms",
-                id, sw.ElapsedMilliseconds);
+            logger.LogError(ex, "Error deleting product {Id}", id);
             return Results.Problem(
                 title: "Error deleting product",
                 detail: ex.Message,
@@ -323,12 +294,11 @@ public static class ProductEndpoints
     /// </summary>
     private static async Task<IResult> RefreshSampleData(HttpContext context)
     {
-        var sw = Stopwatch.StartNew();
         var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
 
         try
         {
-            logger.LogInformation("POST /api/products/refresh - Refreshing sample data");
+            logger.LogDebug("Refreshing sample data");
 
             var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
 
@@ -346,17 +316,13 @@ public static class ProductEndpoints
             var cacheService = context.RequestServices.GetRequiredService<CacheService>();
             cacheService.InvalidateProductCaches();
 
-            sw.Stop();
-            logger.LogInformation("POST /api/products/refresh completed in {ElapsedMs} ms",
-                sw.ElapsedMilliseconds);
+            logger.LogInformation("Sample data refreshed successfully - {Count} products", sampleProducts.Length);
 
             return Results.Ok(new { message = "Sample data refreshed successfully" });
         }
         catch (Exception ex)
         {
-            sw.Stop();
-            logger.LogError(ex, "Error in POST /api/products/refresh after {ElapsedMs} ms",
-                sw.ElapsedMilliseconds);
+            logger.LogError(ex, "Error refreshing sample data");
             return Results.Problem(
                 title: "Error refreshing sample data",
                 detail: ex.Message,

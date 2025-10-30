@@ -1,11 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.OpenApi.Models;
-using System.Diagnostics;
 using System.Reflection;
 using System.Collections.Concurrent;
 using ServerApp.Data;
 using ServerApp.Endpoints;
+using ServerApp.Middleware;
 using ServerApp.Models;
 using ServerApp.Services;
 
@@ -95,6 +95,9 @@ await DbInitializerService.InitializeAsync(app.Services);
 // Enable CORS
 app.UseCors();
 
+// Enable performance monitoring middleware
+app.UsePerformanceMonitoring();
+
 // Log application startup
 logger.LogInformation("InventoryHub ServerApp starting up - Performance monitoring enabled");
 
@@ -112,20 +115,15 @@ app.MapProductEndpoints();
 // - Useful for dropdown selectors in forms
 app.MapGet("/api/categories", (ILogger<Program> logger) =>
 {
-    var sw = Stopwatch.StartNew();
-    
     try
     {
         var categories = SeedingService.GetCategories();
-        sw.Stop();
-        logger.LogInformation("GET /api/categories responded in {ElapsedMs} ms with {Count} categories", 
-            sw.ElapsedMilliseconds, categories.Length);
+        logger.LogDebug("Retrieved {Count} categories", categories.Length);
         return Results.Ok(categories);
     }
     catch (Exception ex)
     {
-        sw.Stop();
-        logger.LogError(ex, "GET /api/categories failed after {ElapsedMs} ms", sw.ElapsedMilliseconds);
+        logger.LogError(ex, "Error retrieving categories");
         throw;
     }
 })

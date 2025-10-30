@@ -1607,3 +1607,632 @@ This is a common pattern when using method group syntax (passing the method name
 
 Made changes.
 
+dotnetmurf
+Please provide me with a detailed step-by-step plan for the Create PerformanceMiddleware refactoring.
+
+Copilot
+# 📋 Detailed Step-by-Step Plan: Create PerformanceMiddleware Refactoring
+
+## Overview
+**Goal**: Extract duplicated Stopwatch timing logic from all endpoints into centralized middleware  
+**Time Estimate**: 30 minutes  
+**Files Modified**: 3 (Program.cs, new PerformanceMiddleware.cs, ProductEndpoints.cs)  
+**Lines Reduced Across Files**: ~100+ lines of duplicated code  
+
+---
+
+## 🎯 Phase 1: Create PerformanceMiddleware (15 minutes)
+
+### Step 1.1: Create the PerformanceMiddleware Class File
+**Action**: Create `ServerApp/Middleware/PerformanceMiddleware.cs`
+
+**File Structure**:
+```
+ServerApp/
+├── Middleware/
+│   └── PerformanceMiddleware.cs    ← NEW FILE
+├── Endpoints/
+│   └── ProductEndpoints.cs
+├── Services/
+│   ├── CacheService.cs
+│   └── ...
+```
+
+### Step 1.2: Define PerformanceMiddleware Implementation
+
+**Complete Code for PerformanceMiddleware.cs**:
+
+```csharp
+using System.Diagnostics;
+
+namespace ServerApp.Middleware;
+
+/// <summary>
+/// Middleware that monitors and logs the performance of HTTP requests
+/// </summary>
+/// <remarks>
+/// Automatically tracks request duration using Stopwatch and logs timing information.
+/// Wraps requests in try-catch to ensure timing is captured even on errors.
+/// Provides consistent performance monitoring across all endpoints without code duplication.
+/// </remarks>
+public class PerformanceMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly ILogger<PerformanceMiddleware> _logger;
+
+    /// <summary>
+    /// Initializes a new instance of the PerformanceMiddleware
+    /// </summary>
+    /// <param name="next">The next middleware in the pipeline</param>
+    /// <param name="logger">Logger for performance metrics</param>
+    public PerformanceMiddleware(RequestDelegate next, ILogger<PerformanceMiddleware> logger)
+    {
+        _next = next ?? throw new ArgumentNullException(nameof(next));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    /// <summary>
+    /// Invokes the middleware to track request performance
+    /// </summary>
+    /// <param name="context">The HTTP context for the current request</param>
+    public async Task InvokeAsync(HttpContext context)
+    {
+        var sw = Stopwatch.StartNew();
+        var method = context.Request.Method;
+        var path = context.Request.Path;
+
+        try
+        {
+            // Call the next middleware in the pipeline
+            await _next(context);
+
+            sw.Stop();
+
+            // Log successful request with timing
+            var statusCode = context.Response.StatusCode;
+            _logger.LogInformation(
+                "{Method} {Path} responded with {StatusCode} in {ElapsedMs} ms",
+                method,
+                path,
+                statusCode,
+                sw.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+
+            // Log failed request with timing and exception
+            _logger.LogError(ex,
+                "{Method} {Path} failed after {ElapsedMs} ms",
+                method,
+                path,
+                sw.ElapsedMilliseconds);
+
+            // Re-throw to let global error handling deal with it
+            throw;
+        }
+    }
+}
+
+/// <summary>
+/// Extension methods for registering PerformanceMiddleware
+/// </summary>
+public static class PerformanceMiddlewareExtensions
+{
+    /// <summary>
+    /// Adds PerformanceMiddleware to the application pipeline
+    /// </summary>
+    /// <param name="app">The application builder</param>
+    /// <returns>The application builder for method chaining</returns>
+    public static IApplicationBuilder UsePerformanceMonitoring(this IApplicationBuilder app)
+    {
+        return app.UseMiddleware<PerformanceMiddleware>();
+    }
+}
+```
+
+**Key Features**:
+- ✅ Automatic timing with Stopwatch
+- ✅ Logs method, path, status code, and duration
+- ✅ Exception handling with timing preserved
+- ✅ Extension method for clean registration
+- ✅ Works with all HTTP methods (GET, POST, PUT, DELETE)
+- ✅ Comprehensive XML documentation
+
+---
+
+## 🔧 Phase 2: Update Program.cs (5 minutes)
+
+### Step 2.1: Add Using Statement for Middleware
+
+**Location**: Top of Program.cs (around line 1-10)
+
+**Find**:
+```csharp
+using ServerApp.Data;
+using ServerApp.Endpoints;
+using ServerApp.Models;
+using ServerApp.Services;
+```
+
+**Add**:
+```csharp
+using ServerApp.Middleware;
+```
+
+---
+
+### Step 2.2: Register PerformanceMiddleware in Pipeline
+
+**Location**: After `app.UseCors();` and before endpoint mapping (around line 98)
+
+**Find**:
+```csharp
+// Enable CORS
+app.UseCors();
+
+// Log application startup
+logger.LogInformation("InventoryHub ServerApp starting up - Performance monitoring enabled");
+```
+
+**Replace with**:
+```csharp
+// Enable CORS
+app.UseCors();
+
+// Enable performance monitoring middleware
+app.UsePerformanceMonitoring();
+
+// Log application startup
+logger.LogInformation("InventoryHub ServerApp starting up - Performance monitoring enabled");
+```
+
+---
+
+## 🧹 Phase 3: Update ProductEndpoints.cs (10 minutes)
+
+### Step 3.1: Remove Stopwatch and Timing Logic from GetProducts
+
+**Location**: ProductEndpoints.cs, GetProducts method (around line 73-150)
+
+**Current Pattern**:
+```csharp
+private static async Task<IResult> GetProducts(...)
+{
+    var sw = Stopwatch.StartNew();
+    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+
+    try
+    {
+        // ... business logic ...
+        
+        sw.Stop();
+        logger.LogInformation("GET /api/products responded in {ElapsedMs} ms", sw.ElapsedMilliseconds);
+        return Results.Ok(paginatedList);
+    }
+    catch (Exception ex)
+    {
+        sw.Stop();
+        logger.LogError(ex, "Error in GET /api/products after {ElapsedMs} ms", sw.ElapsedMilliseconds);
+        return Results.Problem(...);
+    }
+}
+```
+
+**Replace with**:
+```csharp
+private static async Task<IResult> GetProducts(...)
+{
+    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+
+    try
+    {
+        // ... business logic remains the same ...
+        
+        logger.LogDebug("Retrieved {Count} products from cache/database", paginatedList.TotalCount);
+        return Results.Ok(paginatedList);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error retrieving products");
+        return Results.Problem(
+            title: "Error retrieving products",
+            detail: ex.Message,
+            statusCode: StatusCodes.Status500InternalServerError);
+    }
+}
+```
+
+**Changes**:
+- ❌ Remove `var sw = Stopwatch.StartNew();`
+- ❌ Remove all `sw.Stop();` calls
+- ❌ Remove timing from log messages
+- ✅ Keep business logic intact
+- ✅ Simplify log messages (middleware handles timing)
+
+---
+
+### Step 3.2: Apply Same Changes to All Other Endpoints
+
+**Endpoints to Update** (5 total):
+1. ✅ GetProducts - (described above)
+2. GetProductById
+3. CreateProduct
+4. UpdateProduct
+5. DeleteProduct
+6. RefreshSampleData
+
+**Pattern for Each**:
+1. Remove `var sw = Stopwatch.StartNew();`
+2. Remove `sw.Stop();` from try block
+3. Remove `sw.Stop();` from catch block
+4. Remove `{ElapsedMs}` and `sw.ElapsedMilliseconds` from log messages
+5. Simplify log messages to focus on business context
+6. Keep all business logic and error handling
+
+**Example - GetProductById**:
+
+Before:
+```csharp
+private static async Task<IResult> GetProductById(HttpContext context, int id)
+{
+    var sw = Stopwatch.StartNew();
+    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+
+    try
+    {
+        logger.LogInformation("GET /api/product/{Id}", id);
+        // ... logic ...
+        
+        sw.Stop();
+        if (product == null)
+        {
+            logger.LogWarning("GET /api/product/{Id} - Product not found after {ElapsedMs} ms", 
+                id, sw.ElapsedMilliseconds);
+            return Results.NotFound(...);
+        }
+
+        logger.LogInformation("GET /api/product/{Id} responded in {ElapsedMs} ms", 
+            id, sw.ElapsedMilliseconds);
+        return Results.Ok(product);
+    }
+    catch (Exception ex)
+    {
+        sw.Stop();
+        logger.LogError(ex, "Error in GET /api/product/{Id} after {ElapsedMs} ms", 
+            id, sw.ElapsedMilliseconds);
+        return Results.Problem(...);
+    }
+}
+```
+
+After:
+```csharp
+private static async Task<IResult> GetProductById(HttpContext context, int id)
+{
+    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+
+    try
+    {
+        logger.LogDebug("Retrieving product {Id}", id);
+        // ... logic ...
+        
+        if (product == null)
+        {
+            logger.LogWarning("Product {Id} not found", id);
+            return Results.NotFound(new { message = $"Product with ID {id} not found" });
+        }
+
+        logger.LogDebug("Product {Id} retrieved successfully", id);
+        return Results.Ok(product);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error retrieving product {Id}", id);
+        return Results.Problem(
+            title: "Error retrieving product",
+            detail: ex.Message,
+            statusCode: StatusCodes.Status500InternalServerError);
+    }
+}
+```
+
+---
+
+### Step 3.3: Remove Stopwatch Using Statement
+
+**Location**: Top of ProductEndpoints.cs
+
+**Find**:
+```csharp
+using Microsoft.EntityFrameworkCore;
+using ServerApp.Data;
+using ServerApp.Models;
+using ServerApp.Services;
+using System.Diagnostics;
+```
+
+**Replace with**:
+```csharp
+using Microsoft.EntityFrameworkCore;
+using ServerApp.Data;
+using ServerApp.Models;
+using ServerApp.Services;
+```
+
+(Remove `using System.Diagnostics;` since Stopwatch is no longer used)
+
+---
+
+## ✅ Phase 4: Update Category Endpoint in Program.cs (Optional - 5 minutes)
+
+### Step 4.1: Simplify Category Endpoint
+
+**Location**: Program.cs, GET /api/categories endpoint
+
+**Current**:
+```csharp
+app.MapGet("/api/categories", (ILogger<Program> logger) =>
+{
+    var sw = Stopwatch.StartNew();
+    
+    try
+    {
+        var categories = SeedingService.GetCategories();
+        sw.Stop();
+        logger.LogInformation("GET /api/categories responded in {ElapsedMs} ms with {Count} categories", 
+            sw.ElapsedMilliseconds, categories.Length);
+        return Results.Ok(categories);
+    }
+    catch (Exception ex)
+    {
+        sw.Stop();
+        logger.LogError(ex, "GET /api/categories failed after {ElapsedMs} ms", sw.ElapsedMilliseconds);
+        throw;
+    }
+})
+```
+
+**Replace with**:
+```csharp
+app.MapGet("/api/categories", (ILogger<Program> logger) =>
+{
+    try
+    {
+        var categories = SeedingService.GetCategories();
+        logger.LogDebug("Retrieved {Count} categories", categories.Length);
+        return Results.Ok(categories);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Error retrieving categories");
+        throw;
+    }
+})
+```
+
+---
+
+### Step 4.2: Remove Stopwatch Using from Program.cs (if no longer needed)
+
+**Location**: Top of Program.cs
+
+**Check if `System.Diagnostics` is still needed**:
+- If Stopwatch is only used in endpoints (now removed), delete the using
+- If used elsewhere (e.g., startup code), keep it
+
+**If removing**:
+```csharp
+using System.Diagnostics;  // ← Remove this line
+```
+
+---
+
+## ✅ Phase 5: Build and Test (5 minutes)
+
+### Step 5.1: Build ServerApp
+```powershell
+cd ServerApp
+dotnet build
+```
+
+**Expected**: No errors, successful build
+
+---
+
+### Step 5.2: Run ServerApp
+```powershell
+dotnet run
+```
+
+**Expected**: 
+- Server starts successfully
+- Middleware logs appear in console
+- Performance timing automatic for all requests
+
+---
+
+### Step 5.3: Test Middleware Functionality
+
+**Test 1: GET Request**
+```
+GET http://localhost:5132/api/products?pageNumber=1&pageSize=10
+```
+
+**Expected Log Output**:
+```
+GET /api/products responded with 200 in 45 ms
+```
+
+**Test 2: POST Request**
+```
+POST http://localhost:5132/api/product
+Body: { "name": "Test", "price": 10, "categoryId": 101 }
+```
+
+**Expected Log Output**:
+```
+POST /api/product responded with 201 in 23 ms
+```
+
+**Test 3: Error Scenario**
+```
+GET http://localhost:5132/api/product/999999
+```
+
+**Expected Log Output**:
+```
+GET /api/product/999999 responded with 404 in 12 ms
+```
+
+---
+
+## 📊 Expected Results
+
+### Before Refactoring:
+```
+ProductEndpoints.cs: 391 lines
+- Every endpoint has Stopwatch code (~8 lines per endpoint)
+- GetProducts: ~80 lines
+- GetProductById: ~40 lines
+- CreateProduct: ~55 lines
+- UpdateProduct: ~65 lines
+- DeleteProduct: ~45 lines
+- RefreshSampleData: ~50 lines
+- Total Stopwatch code: ~48 lines (6 endpoints × 8 lines)
+
+Program.cs: ~155 lines
+- Category endpoint has Stopwatch code (~8 lines)
+```
+
+### After Refactoring:
+```
+ProductEndpoints.cs: ~340 lines (-51 lines, -13%)
+- No Stopwatch code in any endpoint
+- GetProducts: ~70 lines (-10 lines)
+- GetProductById: ~32 lines (-8 lines)
+- CreateProduct: ~47 lines (-8 lines)
+- UpdateProduct: ~57 lines (-8 lines)
+- DeleteProduct: ~37 lines (-8 lines)
+- RefreshSampleData: ~42 lines (-8 lines)
+
+Program.cs: ~150 lines (-5 lines)
+- No Stopwatch in category endpoint
+
+PerformanceMiddleware.cs: ~95 lines (NEW)
+- Centralized timing logic
+- Reusable across all endpoints
+```
+
+**Net Result**: 
+- Removed ~56 lines of duplicated code
+- Added 95 lines of reusable middleware
+- **Overall: Cleaner, more maintainable codebase**
+
+---
+
+## 🎯 Success Criteria Checklist
+
+- [ ] PerformanceMiddleware.cs created in ServerApp/Middleware/
+- [ ] Extension method UsePerformanceMonitoring implemented
+- [ ] Middleware registered in Program.cs pipeline
+- [ ] All 6 product endpoints updated (Stopwatch removed)
+- [ ] Category endpoint updated (Stopwatch removed)
+- [ ] using System.Diagnostics removed from ProductEndpoints.cs
+- [ ] using System.Diagnostics removed from Program.cs (if not needed)
+- [ ] ServerApp builds without errors
+- [ ] ServerApp runs successfully
+- [ ] Middleware logs request timing automatically
+- [ ] All endpoints function correctly (same behavior as before)
+- [ ] Performance logs appear for all requests
+
+---
+
+## 🚀 Next Steps After This Refactoring
+
+Once PerformanceMiddleware is complete:
+1. ✅ Extract CacheService - **COMPLETE**
+2. ✅ Extract ProductEndpoints - **COMPLETE**
+3. ✅ Create PerformanceMiddleware - **COMPLETE** (after this)
+4. ⏭️ Clean up Program.cs (15 min)
+5. ⏭️ **Then** implement performance optimizations (1 hour)
+
+---
+
+## 💡 Pro Tips
+
+1. **Middleware Order Matters**: 
+   - Place `UsePerformanceMonitoring()` early in pipeline
+   - Should be after `UseCors()` but before endpoint routing
+   - This ensures all requests are timed
+
+2. **Logging Levels**:
+   - Use `LogInformation` for middleware (always visible)
+   - Use `LogDebug` for endpoint details (verbose mode only)
+   - Use `LogWarning` for business warnings (not found, etc.)
+   - Use `LogError` for exceptions
+
+3. **Don't Break Business Logic**:
+   - Only remove timing code
+   - Keep all validation, error handling, and business logic
+   - Endpoints should function identically
+
+4. **Test Thoroughly**:
+   - Verify all endpoints still work
+   - Check logs show timing information
+   - Test both success and error paths
+
+5. **Benefits**:
+   - **DRY Principle**: Don't Repeat Yourself
+   - **Single Responsibility**: Middleware handles timing, endpoints handle business logic
+   - **Easier Testing**: Can test endpoints without timing concerns
+   - **Consistency**: All endpoints timed the same way
+
+---
+
+## 🔍 Key Differences: Before vs After
+
+### Before (In Every Endpoint):
+```csharp
+var sw = Stopwatch.StartNew();  // Line 1
+try
+{
+    // business logic
+    sw.Stop();  // Line N
+    logger.LogInformation("... {ElapsedMs} ms", sw.ElapsedMilliseconds);
+}
+catch (Exception ex)
+{
+    sw.Stop();  // Line N+5
+    logger.LogError(ex, "... {ElapsedMs} ms", sw.ElapsedMilliseconds);
+}
+```
+**8 lines of boilerplate × 7 endpoints = 56 lines**
+
+### After (In Middleware):
+```csharp
+// Program.cs: ONE line
+app.UsePerformanceMonitoring();
+
+// ProductEndpoints.cs: Endpoints are simpler
+try
+{
+    // business logic
+    logger.LogDebug("Retrieved products");
+}
+catch (Exception ex)
+{
+    logger.LogError(ex, "Error retrieving products");
+}
+```
+**1 line registration + 95 lines middleware = Reusable for ALL endpoints**
+
+---
+
+Would you like me to execute this refactoring now?
+
+dotnetmurf
+Please execute your Detailed Step-by-Step Plan: Create PerformanceMiddleware Refactoring.
+Please perform a dotnet build after each phase to catch any build errors as early as possible.
+
+Copilot
