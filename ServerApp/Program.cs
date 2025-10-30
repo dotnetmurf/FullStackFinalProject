@@ -70,6 +70,9 @@ builder.Logging.SetMinimumLevel(LogLevel.Information);
 // Cache duration: 5 minutes absolute, 2 minutes sliding
 builder.Services.AddMemoryCache();
 
+// Register CacheService for centralized cache management
+builder.Services.AddSingleton<CacheService>();
+
 // Configure CORS policy for Blazor client
 // Allows specific origins with any headers and methods
 builder.Services.AddCors(options =>
@@ -81,10 +84,6 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
-
-// Cache key registry for tracking all product cache keys
-// This allows us to invalidate all product-related caches without guessing keys
-var productCacheKeys = new ConcurrentBag<string>();
 
 // Get logger for startup messages
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
@@ -98,16 +97,6 @@ app.UseCors();
 // Log application startup
 logger.LogInformation("InventoryHub ServerApp starting up - Performance monitoring enabled");
 
-// Returns an empty paginated list of products
-PaginatedList<Product> GetEmptyPaginatedList() => new()
-{
-    PageNumber = 1,
-    PageSize = 12,
-    TotalCount = 0,
-    TotalPages = 0,
-    Items = Array.Empty<Product>()
-};
-
 // GET /api/products - Retrieves all products with caching and pagination
 // - Uses memory cache with 5-minute expiration
 // - Implements performance monitoring
@@ -118,7 +107,6 @@ app.MapGet("/api/products", async (
     string? searchTerm,
     int? categoryId,
     HttpContext context,
-    IMemoryCache cache,
     ILogger<Program> logger) =>
 {
     // Apply defaults if not provided
@@ -126,67 +114,55 @@ app.MapGet("/api/products", async (
     var pageSize = pagination.PageSize <= 0 ? 10 : pagination.PageSize;
     var normalizedSearch = searchTerm?.Trim() ?? string.Empty;
     var sw = Stopwatch.StartNew();
-    var cacheKey = $"products_page{pageNumber}_size{pageSize}_search{normalizedSearch}_cat{categoryId}";
     
     try
     {
-        if (cache.TryGetValue(cacheKey, out PaginatedList<Product>? cachedProducts))
-        {
-            sw.Stop();
-            logger.LogInformation("GET /api/products responded in {ElapsedMs} ms (CACHE HIT)", sw.ElapsedMilliseconds);
-            return Results.Ok(cachedProducts ?? GetEmptyPaginatedList());
-        }
+        // Get CacheService from DI
+        var cacheService = context.RequestServices.GetRequiredService<CacheService>();
+        var cacheKey = cacheService.BuildProductCacheKey(pageNumber, pageSize, normalizedSearch, categoryId);
         
-        logger.LogInformation("Cache miss - retrieving products from database");
-        var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
-        var query = dbContext.Products.AsQueryable();
-
-        // Apply search filter if provided (case-insensitive)
-        if (!string.IsNullOrWhiteSpace(normalizedSearch))
+        // Use GetOrCreateAsync pattern for cleaner code
+        var paginatedList = await cacheService.GetOrCreateProductCacheAsync(cacheKey, async () =>
         {
-            query = query.Where(p => EF.Functions.Like(p.Name, $"%{normalizedSearch}%"));
-        }
+            var dbContext = context.RequestServices.GetRequiredService<AppDbContext>();
+            var query = dbContext.Products.AsQueryable();
 
-        // Apply category filter if provided
-        if (categoryId.HasValue)
-        {
-            query = query.Where(p => p.CategoryId == categoryId.Value);
-        }
+            // Apply search filter if provided (case-insensitive)
+            if (!string.IsNullOrWhiteSpace(normalizedSearch))
+            {
+                query = query.Where(p => EF.Functions.Like(p.Name, $"%{normalizedSearch}%"));
+            }
 
-        // Apply sorting
-        query = query.OrderBy(p => p.Name);
+            // Apply category filter if provided
+            if (categoryId.HasValue)
+            {
+                query = query.Where(p => p.CategoryId == categoryId.Value);
+            }
 
-        // Get total count for pagination (after filtering)
-        var totalCount = await query.CountAsync();
+            // Apply sorting
+            query = query.OrderBy(p => p.Name);
 
-        // Apply pagination
-        var products = await query
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
+            // Get total count for pagination (after filtering)
+            var totalCount = await query.CountAsync();
 
-        var paginatedList = new PaginatedList<Product>
-        {
-            Items = products,
-            PageNumber = pageNumber,
-            PageSize = pageSize,
-            TotalCount = totalCount,
-            TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
-        };
-        
-        var cacheOptions = new MemoryCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5),
-            SlidingExpiration = TimeSpan.FromMinutes(2)
-        };
-        
-        // Register this cache key for later invalidation
-        productCacheKeys.Add(cacheKey);
-        
-        cache.Set(cacheKey, paginatedList, cacheOptions);
+            // Apply pagination
+            var products = await query
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PaginatedList<Product>
+            {
+                Items = products,
+                PageNumber = pageNumber,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+            };
+        });
         
         sw.Stop();
-        logger.LogInformation("GET /api/products responded in {ElapsedMs} ms (CACHE MISS - Data generated and cached)", sw.ElapsedMilliseconds);
+        logger.LogInformation("GET /api/products responded in {ElapsedMs} ms", sw.ElapsedMilliseconds);
         return Results.Ok(paginatedList);
     }
     catch (Exception ex)
@@ -272,28 +248,6 @@ app.MapGet("/api/product/{id}", async (int id, HttpContext context, IMemoryCache
     }
 });
 
-// Helper method to invalidate all paginated product caches
-void InvalidateProductCaches(IMemoryCache cache, ILogger<Program> logger, ConcurrentBag<string> cacheKeys)
-{
-    // Use the cache key registry to clear all tracked product caches
-    logger.LogInformation("Starting cache invalidation using registry...");
-    
-    int keysRemoved = 0;
-    var keysSnapshot = cacheKeys.ToArray();
-    
-    foreach (var key in keysSnapshot)
-    {
-        cache.Remove(key);
-        keysRemoved++;
-        logger.LogInformation("Removed cache key: {CacheKey}", key);
-    }
-    
-    // Clear the registry after invalidation
-    cacheKeys.Clear();
-    
-    logger.LogInformation("Cache invalidation complete - removed {Count} tracked cache keys", keysRemoved);
-}
-
 // POST /api/product - Creates a new product
 // - Validates input data
 // - Updates cache to reflect new product
@@ -344,7 +298,8 @@ app.MapPost("/api/product", async (CreateProductRequest request, HttpContext con
         await dbContext.SaveChangesAsync();
         
         // Invalidate all paginated product caches
-        InvalidateProductCaches(cache, logger, productCacheKeys);
+        var cacheService = context.RequestServices.GetRequiredService<CacheService>();
+        cacheService.InvalidateProductCaches();
         
         sw.Stop();
         logger.LogInformation("POST /api/product created product {Id} in {ElapsedMs} ms", newId, sw.ElapsedMilliseconds);
@@ -408,7 +363,8 @@ app.MapPut("/api/product/{id}", async (int id, UpdateProductRequest request, Htt
         await dbContext.SaveChangesAsync();
         
         // Invalidate relevant caches
-        InvalidateProductCaches(cache, logger, productCacheKeys);
+        var cacheService = context.RequestServices.GetRequiredService<CacheService>();
+        cacheService.InvalidateProductCaches();
         cache.Remove($"product_{id}");
         
         sw.Stop();
@@ -447,7 +403,8 @@ app.MapDelete("/api/product/{id}", async (int id, HttpContext context, IMemoryCa
         await dbContext.SaveChangesAsync();
         
         // Invalidate relevant caches
-        InvalidateProductCaches(cache, logger, productCacheKeys);
+        var cacheService = context.RequestServices.GetRequiredService<CacheService>();
+        cacheService.InvalidateProductCaches();
         cache.Remove($"product_{id}");
         
         sw.Stop();
@@ -486,7 +443,8 @@ app.MapPost("/api/products/refresh", async (HttpContext context, IMemoryCache ca
         await db.SaveChangesAsync();
         
         // Invalidate all product caches
-        InvalidateProductCaches(cache, logger, productCacheKeys);
+        var cacheService = context.RequestServices.GetRequiredService<CacheService>();
+        cacheService.InvalidateProductCaches();
         
         sw.Stop();
         logger.LogInformation("POST /api/products/refresh completed - Reset {Count} products in {ElapsedMs} ms", 
