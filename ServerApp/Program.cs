@@ -2,36 +2,31 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
-using System.Collections.Concurrent;
 using ServerApp.Data;
 using ServerApp.Endpoints;
 using ServerApp.Middleware;
 using ServerApp.Models;
 using ServerApp.Services;
 
+// ============================================
+// SECTION 1: Application Builder Setup
+// ============================================
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure services for the InventoryHub application
-// Features:
-// - In-memory caching with 5-minute expiration
-// - Performance monitoring and logging
-// - CORS support for Blazor client
-// - Error handling and monitoring
+// ============================================
+// SECTION 2: Service Configuration
+// ============================================
+// Features: In-memory caching, performance monitoring, CORS, OpenAPI documentation
 
-// Add services to the container
+// OpenAPI/Swagger configuration
 builder.Services.AddEndpointsApiExplorer();
-
-// Add Entity Framework Core with InMemory provider
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseInMemoryDatabase("InventoryHub"));
-
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "InventoryHub API",
         Version = "v1",
-        Description = "A minimal API for product inventory management",
+        Description = "Product inventory management API with caching and performance monitoring",
         Contact = new OpenApiContact
         {
             Name = "Development Team",
@@ -39,57 +34,45 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 
-    // Enable XML comments
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     options.IncludeXmlComments(xmlPath);
-
-    // Enable annotations
     options.EnableAnnotations();
-
-    // Add security definition if needed
-    /*
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "JWT Authorization header using the Bearer scheme",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer"
-    });
-    */
 });
 
-// Configure application services and middleware
+// Database - In-memory for development
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseInMemoryDatabase("InventoryHub"));
 
-// Configure logging for performance monitoring and diagnostics
+// Memory caching with CacheService for product data (5 min absolute, 2 min sliding)
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<CacheService>();
+
+// Logging configuration
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.SetMinimumLevel(LogLevel.Information);
 
-// Add in-memory caching service for performance optimization
-// Cache duration: 5 minutes absolute, 2 minutes sliding
-builder.Services.AddMemoryCache();
-
-// Register CacheService for centralized cache management
-builder.Services.AddSingleton<CacheService>();
-
-// Configure CORS policy for Blazor client
-// Allows specific origins with any headers and methods
+// CORS - Allow specific Blazor client origins
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(
-        policy => policy.WithOrigins("http://localhost:5019", "https://localhost:7253")
-                        .AllowAnyHeader()
-                        .AllowAnyMethod());
+    options.AddDefaultPolicy(policy =>
+        policy.WithOrigins("http://localhost:5019", "https://localhost:7253")
+              .AllowAnyHeader()
+              .AllowAnyMethod());
 });
 
+// ============================================
+// SECTION 3: Build Application
+// ============================================
 var app = builder.Build();
-
-// Get logger for startup messages
 var logger = app.Services.GetRequiredService<ILogger<Program>>();
 
-// Initialize the database with seed data
+// ============================================
+// SECTION 4: Middleware Pipeline Configuration
+// ============================================
+
+// Initialize database with seed data
 await DbInitializerService.InitializeAsync(app.Services);
 
 // Enable CORS
@@ -102,17 +85,13 @@ app.UsePerformanceMonitoring();
 logger.LogInformation("InventoryHub ServerApp starting up - Performance monitoring enabled");
 
 // ============================================
-// Product Endpoints (extracted to ProductEndpoints.cs)
+// SECTION 5: API Endpoint Mapping
 // ============================================
+
+// Product endpoints (extracted to ProductEndpoints.cs)
 app.MapProductEndpoints();
 
-// ============================================
-// Category Endpoints
-// ============================================
-
-// GET /api/categories - Retrieves all available categories
-// - Returns distinct categories from seed data
-// - Useful for dropdown selectors in forms
+// Category endpoint - Get all categories for dropdown selectors
 app.MapGet("/api/categories", (ILogger<Program> logger) =>
 {
     try
@@ -132,20 +111,20 @@ app.MapGet("/api/categories", (ILogger<Program> logger) =>
 .Produces<Category[]>(StatusCodes.Status200OK);
 
 // ============================================
-// Application Configuration
+// SECTION 6: Static Files & Documentation
 // ============================================
 
-// Configure static files first
+// Static files
 app.UseStaticFiles();
 
-// Configure Swagger and Swagger UI
+// Swagger UI (Development only)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "InventoryHub API v1");
-        options.RoutePrefix = string.Empty; // Set to empty to serve the Swagger UI at the root
+        options.RoutePrefix = string.Empty;
         options.DocumentTitle = "InventoryHub API Documentation";
         options.EnableTryItOutByDefault();
         options.DisplayRequestDuration();
@@ -154,6 +133,9 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+// ============================================
+// SECTION 7: Start Application
+// ============================================
 logger.LogInformation("InventoryHub ServerApp configured and ready to serve requests");
 
 app.Run();
